@@ -1,6 +1,6 @@
 # wandervision
 
-轻量级道路智能巡检课程设计。当前交付 **0.2.0 FIELD INSTRUMENT**：专业相机风格界面，完全本地运行的 YOLOv8 Nano / Small + NCNN 摄像头检测。
+轻量级道路智能巡检课程设计。当前交付 **0.3.0 FIELD UI**：黑灰黄原生巡检界面，完全本地运行的 YOLOv8 Nano / Small + NCNN 摄像头检测。
 
 - **通用物体**：COCO 80 类，可用杯子、瓶子、椅子、手机、键盘等室内物品验证。
 - **车辆**：同一 COCO 模型，仅显示 bicycle、car、motorcycle、bus、truck；不是另行训练的专用车辆模型。
@@ -8,7 +8,7 @@
 - **纯取景**：不执行推理，便于检查相机、方向和界面；新增真实检测统计、构图网格、相册截图、最近记录与系统分享。
 - Android 7.0+、ARM64、Camera2；截图保存需 Android10+。目标设备小米13，6.36英寸2400×1080/20:9；dp与系统安全区域适配，横屏控制区放在右侧。
 
-下载与反馈见 [GitHub Releases](https://github.com/lvshanyewu/wandervision/releases) 和 [0.2.0测试说明](docs/releases/0.2.0.md)。0.1.0已获用户正常启动与夜间车辆识别可用的反馈；0.2.0仍需重新真机确认，Small效果和速度不预先承诺。
+下载与反馈见 [GitHub Releases](https://github.com/lvshanyewu/wandervision/releases) 和 [0.3.0测试说明](docs/releases/0.3.0.md)。用户已确认0.2.0功能无问题；0.3.0仅重排和重绘界面，不新增模型或业务能力。
 
 ## 工程
 
@@ -45,7 +45,7 @@ GitHub Actions 对 main 和 v* 标签执行构建、lint 和包内容/签名检�
 
 ## 后续路线
 
-当前已完成仪器相机UI、截图和本地统计。后续：真机反馈 → 道路病害模型 → GPS与本地事件库 → 轻量API/数据库/事件同步 → Web地图统计 → 课设材料。车牌和遗留物检测可选；GPS、云同步、后端和Web尚未接入，界面不显示虚构的位置或同步成功状态。
+当前已完成黑灰黄巡检UI、截图和本地统计，地图/轨迹仅为禁用占位。后续：真机反馈 → 道路病害模型 → GPS与本地事件库 → 轻量API/数据库/事件同步 → Web地图统计 → 课设材料。车牌和遗留物检测可选；GPS、云同步、后端和Web尚未接入，界面不显示虚构的位置或同步成功状态。
 
 ## 来源与许可
 

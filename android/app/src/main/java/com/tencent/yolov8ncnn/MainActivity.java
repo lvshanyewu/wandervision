@@ -121,7 +121,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
     }
     private TextView sheetRow(LinearLayout box,String label,int color,Runnable click){
         TextView row=ui.text(label,14,color);row.setMinHeight(ui.dp(54));row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(ui.dp(12),ui.dp(12),ui.dp(12),ui.dp(12));
-        row.setBackground(ui.shape(0xff18242b,10,0xff34464c));LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.topMargin=ui.dp(8);box.addView(row,p);
+        row.setBackground(ui.shape(CameraUi.PANEL,9,CameraUi.LINE));LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.topMargin=ui.dp(8);box.addView(row,p);
         row.setOnClickListener(v->{CameraUi.haptic(v);click.run();});row.setFocusable(true);return row;
     }
     @Override public void settings(){
@@ -132,16 +132,15 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         sheetRow(box,"相机权限与应用信息",CameraUi.WHITE,()->{d.dismiss();startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));});
         sheetRow(box,"开源来源与许可",CameraUi.MUTED,()->{d.dismiss();showLicenses();});d.show();
     }
-    private void showLicenses(){Dialog d=ui.sheet("开源许可","wandervision 0.2.0 · AGPL-3.0\nNCNN Android YOLOv8 / Tencent NCNN / OpenCV Mobile");
+    private void showLicenses(){Dialog d=ui.sheet("开源许可","wandervision 0.3.0 · AGPL-3.0\nNCNN Android YOLOv8 / Tencent NCNN / OpenCV Mobile");
         LinearLayout box=ui.sheetBody(d);String[] paths={"THIRD_PARTY_NOTICES.md","LICENSE","ncnn-BSD-3-Clause.txt","opencv-LICENSE.txt","opencv-mobile-LICENSE.txt","Apache-2.0.txt"};
         for(String path:paths)sheetRow(box,path,CameraUi.WHITE,()->{d.dismiss();ENGINE.execute(()->{try(InputStream in=getAssets().open("licenses/"+path);ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] buffer=new byte[8192];int n;while((n=in.read(buffer))!=-1)out.write(buffer,0,n);String text=out.toString("UTF-8");main.post(()->{if(destroyed)return;Dialog license=ui.sheet(path,"随 APK 提供的原始许可文本");TextView t=ui.text(text,11,CameraUi.MUTED);t.setTextIsSelectable(true);ui.sheetBody(license).addView(t);license.show();});}catch(IOException e){main.post(()->toast("无法读取许可文本"));}});});d.show();
     }
     @Override public void dashboard(){
         boolean fresh=cameraOpen&&stats[4]>frameAtOpen;String active=fresh?(mode==2?"纯取景":"本地检测"):"等待画面";
         Dialog d=ui.sheet("实时仪表盘",active+"  /  "+(capacity==0?"YOLOv8 Nano":"YOLOv8 Small")+"\n以下为打开面板时的真实快照；目标数是当前帧数量，不是去重车辆总数。");LinearLayout box=ui.sheetBody(d);
-        TextView values=ui.text(String.format(Locale.US,"%s FPS    %s ms\n\n当前帧目标  %s\n最高置信度  %s\n已保存截图  %d\n实际引擎    %s",fresh?String.format(Locale.US,"%.1f",stats[0]):"—",fresh&&mode!=2?String.format(Locale.US,"%.1f",stats[1]):"—",fresh&&mode!=2?Integer.toString((int)stats[2]):"—",fresh&&mode!=2&&stats[2]>0?String.format(Locale.US,"%.0f%%",stats[3]*100):"—",captures.length(),stats[5]==1?"Vulkan GPU":"CPU"),16,CameraUi.MINT);
-        values.setTypeface(Typeface.MONOSPACE);values.setPadding(ui.dp(8),ui.dp(12),ui.dp(8),ui.dp(16));box.addView(values);
-        TextView chartlabel=ui.text("近 24 秒显示帧率  /  每 0.5 秒采样",10,CameraUi.MUTED);box.addView(chartlabel);
+        ui.dashboardTiles(box,stats,fresh,mode==2,captures.length(),capacity==0?"YOLOv8 Nano":"YOLOv8 Small",stats[5]==1?"Vulkan GPU":"CPU");
+        TextView chartlabel=ui.text("近期显示帧率趋势",10,CameraUi.MUTED);box.addView(chartlabel);
         box.addView(new FpsChart(this,fpsHistory.clone()),new LinearLayout.LayoutParams(-1,ui.dp(88)));d.show();
     }
     @Override public void shutter(){
@@ -162,7 +161,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
             if(result!=PixelCopy.SUCCESS||destroyed){preview.recycle();image.recycle();capturing=false;if(!destroyed)toast("相机画面复制失败，请重试");return;}
             int[] point=new int[2];ui.surface.getLocationInWindow(point);
             Canvas canvas=new Canvas(image);canvas.save();
-            Path clip=new Path();clip.addRoundRect(new RectF(point[0],point[1],point[0]+preview.getWidth(),point[1]+preview.getHeight()),ui.dp(20),ui.dp(20),Path.Direction.CW);canvas.clipPath(clip);
+            Path clip=new Path();clip.addRoundRect(new RectF(point[0],point[1],point[0]+preview.getWidth(),point[1]+preview.getHeight()),ui.dp(12),ui.dp(12),Path.Direction.CW);canvas.clipPath(clip);
             canvas.drawBitmap(preview,point[0],point[1],null);
             // A SurfaceView is a separate compositor layer. Window PixelCopy may omit it;
             // copy it explicitly, then redraw only its normal View overlays, never a black Surface.
@@ -193,9 +192,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         if(capturing){toast("截图正在保存，请稍候");return;}
         try{captures=new JSONArray(preferences.getString("captures","[]"));}catch(JSONException ignored){}
         refreshProfile();
-        Dialog d=ui.sheet("本地截图",captures.length()==0?"尚无截图。点击中央快门保存当前画面、检测框和仪器信息。":"最近 30 张记录。原图保存在系统相册；可查看或通过系统分享。");LinearLayout box=ui.sheetBody(d);
+        Dialog d=ui.sheet("截图记录",captures.length()==0?"尚无截图。点击黄色快门保存当前画面、检测框和信息。":"本地相册 · 最近 "+captures.length()+" 张记录\n查看原图或通过系统分享；本版未连接云端。");LinearLayout box=ui.sheetBody(d);
         for(int i=0;i<captures.length();i++){JSONObject record=captures.optJSONObject(i);if(record==null)continue;String time=new SimpleDateFormat("MM-dd HH:mm:ss",Locale.getDefault()).format(new Date(record.optLong("time")));
-            sheetRow(box,time+"   "+record.optString("model")+" / "+record.optInt("size")+"\n"+record.optString("mode")+" · 当前帧 "+record.optInt("objects")+" 个目标",CameraUi.WHITE,()->{d.dismiss();showCapture(record);});}d.show();
+            ImageView thumbnail=ui.recordCard(box,record.optString("mode")+" · 本地截图",time+"  /  "+record.optString("model")+" "+record.optInt("size"),record.optString("mode").equals("取景")?"纯取景 · 未执行检测":"当前帧 "+record.optInt("objects")+" 个目标",()->{d.dismiss();showCapture(record);});
+            ENGINE.execute(()->{try(InputStream in=getContentResolver().openInputStream(Uri.parse(record.optString("uri")))){BitmapFactory.Options options=new BitmapFactory.Options();options.inSampleSize=4;Bitmap bitmap=BitmapFactory.decodeStream(in,null,options);main.post(()->{if(!destroyed)thumbnail.setImageBitmap(bitmap);});}catch(Exception ignored){}});
+        }d.show();
     }
     private void showCapture(JSONObject record){
         Uri uri=Uri.parse(record.optString("uri"));Dialog d=ui.sheet("截图详情",record.optString("name")+"\n"+record.optString("model")+" / "+record.optInt("size")+" · "+record.optString("mode"));LinearLayout box=ui.sheetBody(d);
@@ -207,7 +208,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
     static final class FpsChart extends View{
         final float[] data;final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
         FpsChart(Activity a,float[] values){super(a);data=values;setContentDescription("显示帧率趋势，实际采样数据");}
-        @Override protected void onDraw(Canvas c){float max=1;for(float v:data)max=Math.max(max,v);p.setStrokeWidth(1);p.setColor(0xff2c4640);for(int i=1;i<4;i++)c.drawLine(0,getHeight()*i/4f,getWidth(),getHeight()*i/4f,p);
+        @Override protected void onDraw(Canvas c){float max=1;for(float v:data)max=Math.max(max,v);p.setStrokeWidth(1);p.setColor(CameraUi.LINE);for(int i=1;i<4;i++)c.drawLine(0,getHeight()*i/4f,getWidth(),getHeight()*i/4f,p);
             Path path=new Path();for(int i=0;i<data.length;i++){float x=getWidth()*i/(float)(data.length-1),y=getHeight()-8-(getHeight()-16)*data[i]/max;if(i==0)path.moveTo(x,y);else path.lineTo(x,y);}p.setStyle(Paint.Style.STROKE);p.setColor(CameraUi.MINT);p.setStrokeWidth(3);c.drawPath(path,p);p.setStyle(Paint.Style.FILL);
         }
     }

@@ -381,8 +381,7 @@ int YOLOv8_det_coco::draw(cv::Mat& rgb, const std::vector<Object>& objects)
     };
 
     for (const auto& obj : objects) {
-        const cv::Scalar color = (obj.label==2 || obj.label==5 || obj.label==7)
-            ? cv::Scalar(96,234,198) : cv::Scalar(244,193,92);
+        const cv::Scalar color(255,223,27);
         cv::rectangle(rgb, obj.rect, color, 1, cv::LINE_AA);
         char text[128];
         snprintf(text,sizeof(text),"%s  %.0f%%",class_names[obj.label],obj.prob*100);
@@ -394,7 +393,7 @@ int YOLOv8_det_coco::draw(cv::Mat& rgb, const std::vector<Object>& objects)
         int y=std::max(0,(int)obj.rect.y-size.height-base-8);
         int label_h=std::min(rgb.rows-y,size.height+base+8);
         cv::Rect box(x,y,label_w,label_h);
-        cv::Mat dark(rgb(box).size(),rgb.type(),cv::Scalar(12,22,24));
+        cv::Mat dark(rgb(box).size(),rgb.type(),cv::Scalar(16,17,20));
         cv::addWeighted(rgb(box),0.2,dark,0.8,0,rgb(box));
         cv::rectangle(rgb,cv::Rect(x,y,2,label_h),color,-1);
         cv::putText(rgb,text,cv::Point(x+5,y+size.height+3),cv::FONT_HERSHEY_SIMPLEX,scale,color,1,cv::LINE_AA);
