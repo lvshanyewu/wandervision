@@ -152,8 +152,27 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         final int c=capacity,r=resolution,m=mode;final float[] snapshot=stats.clone();
         try{PixelCopy.request(getWindow(),image,result->{
             if(result!=PixelCopy.SUCCESS){capturing=false;image.recycle();toast("截图失败，请等画面稳定后重试");return;}
-            ENGINE.execute(()->saveCapture(image,c,r,m,snapshot));
+            copyCameraIntoCapture(image,c,r,m,snapshot);
         },main);}catch(IllegalArgumentException e){capturing=false;image.recycle();toast("画面尚未准备好");}
+    }
+    private void copyCameraIntoCapture(Bitmap image,int capacity,int resolution,int mode,float[] snapshot){
+        if(destroyed){image.recycle();capturing=false;return;}
+        Bitmap preview=Bitmap.createBitmap(ui.surface.getWidth(),ui.surface.getHeight(),Bitmap.Config.ARGB_8888);
+        try{PixelCopy.request(ui.surface,preview,result->{
+            if(result!=PixelCopy.SUCCESS||destroyed){preview.recycle();image.recycle();capturing=false;if(!destroyed)toast("相机画面复制失败，请重试");return;}
+            int[] point=new int[2];ui.surface.getLocationInWindow(point);
+            Canvas canvas=new Canvas(image);canvas.save();
+            Path clip=new Path();clip.addRoundRect(new RectF(point[0],point[1],point[0]+preview.getWidth(),point[1]+preview.getHeight()),ui.dp(20),ui.dp(20),Path.Direction.CW);canvas.clipPath(clip);
+            canvas.drawBitmap(preview,point[0],point[1],null);
+            // A SurfaceView is a separate compositor layer. Window PixelCopy may omit it;
+            // copy it explicitly, then redraw only its normal View overlays, never a black Surface.
+            canvas.translate(point[0],point[1]);
+            for(int i=0;i<ui.viewport.getChildCount();i++){
+                View child=ui.viewport.getChildAt(i);if(child==ui.surface||child.getVisibility()!=View.VISIBLE)continue;
+                canvas.save();canvas.translate(child.getLeft(),child.getTop());child.draw(canvas);canvas.restore();
+            }
+            canvas.restore();preview.recycle();ENGINE.execute(()->saveCapture(image,capacity,resolution,mode,snapshot));
+        },main);}catch(IllegalArgumentException e){preview.recycle();image.recycle();capturing=false;toast("相机画面尚未准备好");}
     }
     private void saveCapture(Bitmap image,int c,int r,int m,float[] snapshot){
         Uri saved=null;
