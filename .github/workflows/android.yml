@@ -1,0 +1,43 @@
+name: Android APK
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Install SDK components
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'ndk;29.0.14206865' 'cmake;3.31.5'
+      - name: Prepare pinned native dependencies
+        run: python3 tools/prepare_native.py
+      - name: Assemble and lint
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug lintDebug --stacktrace
+      - name: Verify APK contents
+        run: python3 tools/check_apk.py android/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wandervision-0.1.0-arm64
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish test APK
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk wandervision-0.1.0-arm64.apk
+          sha256sum wandervision-0.1.0-arm64.apk > SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" wandervision-0.1.0-arm64.apk SHA256SUMS.txt --title 'wandervision 0.1.0 · 首个真机测试版' --notes-file docs/releases/0.1.0.md --prerelease

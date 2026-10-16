@@ -1,0 +1,14 @@
+**/.gradle/
+**/build/
+**/.cxx/
+**/.externalNativeBuild/
+**/local.properties
+.idea/
+*.iml
+artifacts/
+.deps/
+android/app/src/main/jni/ncnn-*/
+android/app/src/main/jni/opencv-mobile-*/
+*.keystore
+*.jks
+__pycache__/
