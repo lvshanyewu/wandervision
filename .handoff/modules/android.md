@@ -12,7 +12,7 @@ related_modules: []
 business_rules: []
 invariants: []
 consumers: []
-updated_at: "2026-10-16T22:27:29+08:00"
+updated_at: "2026-10-16T22:31:57+08:00"
 ---
 
 # 当前实现
@@ -21,7 +21,7 @@ updated_at: "2026-10-16T22:27:29+08:00"
 
 CameraUi 使用原生 View 与自绘暗色仪器外观：安全区、金属渐变参数键、液晶状态HUD、立体快门、横屏右侧控制区。JNI输出真实显示帧率、推理耗时、当前帧目标/最高置信度/帧数/实际引擎。统计面板为打开时快照和近期采样FPS，不是去重车辆数。
 
-快门使用 PixelCopy 截取 Window（含Surface和标注），Android10+通过MediaStore保存 Pictures/wandervision；SharedPreferences记录最近30张的Uri与状态；查看与系统分享。没有录像、网络、GPS或云同步；未接入能力明确标注。设置提供网格、应用权限入口和随包许可证查看。
+快门先 PixelCopy Window，再独立 PixelCopy 相机 Surface，将相机画面与HUD合成；不能假设Window复制会包含SurfaceView，已在模拟器保存图回读中发现并修复黑图问题。Android10+通过MediaStore保存Pictures/wandervision；SharedPreferences记录最近30张的Uri与状态；查看与系统分享。没有录像、网络、GPS或云同步；未接入能力明确标注。设置提供网格、应用权限入口和随包许可证查看。
 
 预览不再依靠独立重力旋转并回转。Java传递实际DisplayRotation/Surface尺寸，native按相机sensorOrientation与前后镜头处理方向，等比中心裁切，再检测/绘制/渲染；Window交换有互斥保护。此方向改动仍需小米13实机验证。
 
