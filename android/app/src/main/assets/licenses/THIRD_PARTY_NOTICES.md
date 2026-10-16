@@ -14,9 +14,9 @@ https://github.com/Tencent/ncnn/releases/tag/20260526 — BSD 3-Clause. Linked f
 
 https://github.com/nihui/opencv-mobile/releases/tag/v36 — OpenCV Apache 2.0, with third-party components under their respective licenses. See `licenses/opencv-LICENSE.txt` and `licenses/opencv-mobile-LICENSE.txt`. Only core/imgproc are linked. Official binary package and checksum are pinned.
 
-## YOLOv8 Nano COCO model
+## YOLOv8 Nano and Small COCO models
 
-Model files `yolov8n.ncnn.param` and `yolov8n.ncnn.bin` are copied without conversion from the pinned nihui demo. YOLOv8 originates from https://github.com/ultralytics/ultralytics under AGPL-3.0 (or a separately obtained enterprise license). This repository and test APK are distributed as AGPL-3.0 with corresponding source available in this repository. No enterprise license is asserted. The model is a general COCO model, not an RDD2022 damage detector.
+Model files `yolov8n.ncnn.param`, `yolov8n.ncnn.bin`, `yolov8s.ncnn.param` and `yolov8s.ncnn.bin` are copied without conversion from the pinned nihui demo. YOLOv8 originates from https://github.com/ultralytics/ultralytics under AGPL-3.0 (or a separately obtained enterprise license). This repository and test APK are distributed as AGPL-3.0 with corresponding source available in this repository. No enterprise license is asserted. These are general COCO models, not RDD2022 damage detectors. Small weights SHA-256: c960a334aea8fae5f109f41c0ab2e93d374769a59f3bad61ab4412dad959ee2b.
 
 ## Gradle wrapper
 

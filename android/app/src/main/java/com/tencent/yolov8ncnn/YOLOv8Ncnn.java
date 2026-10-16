@@ -19,7 +19,10 @@ import android.view.Surface;
 
 public class YOLOv8Ncnn
 {
-    public native boolean loadModel(AssetManager mgr, int taskid, int modelid, int cpugpu);
+    public native boolean loadModel(AssetManager mgr, int taskid, int modelid, int cpugpu, int capacity);
+    public native void configureView(int rotation, int width, int height);
+    public native void setDetectionEnabled(boolean enabled);
+    public native float[] getStats();
     public native boolean openCamera(int facing);
     public native boolean closeCamera();
     public native boolean setOutputWindow(Surface surface);

@@ -380,59 +380,25 @@ int YOLOv8_det_coco::draw(cv::Mat& rgb, const std::vector<Object>& objects)
         "hair drier", "toothbrush"
     };
 
-    static cv::Scalar colors[] = {
-        cv::Scalar( 67,  54, 244),
-        cv::Scalar( 30,  99, 233),
-        cv::Scalar( 39, 176, 156),
-        cv::Scalar( 58, 183, 103),
-        cv::Scalar( 81, 181,  63),
-        cv::Scalar(150, 243,  33),
-        cv::Scalar(169, 244,   3),
-        cv::Scalar(188, 212,   0),
-        cv::Scalar(150, 136,   0),
-        cv::Scalar(175,  80,  76),
-        cv::Scalar(195,  74, 139),
-        cv::Scalar(220,  57, 205),
-        cv::Scalar(235,  59, 255),
-        cv::Scalar(193,   7, 255),
-        cv::Scalar(152,   0, 255),
-        cv::Scalar( 87,  34, 255),
-        cv::Scalar( 85,  72, 121),
-        cv::Scalar(158, 158, 158),
-        cv::Scalar(125, 139,  96)
-    };
-
-    for (size_t i = 0; i < objects.size(); i++)
-    {
-        const Object& obj = objects[i];
-
-        const cv::Scalar& color = colors[i % 19];
-
-        // fprintf(stderr, "%d = %.5f at %.2f %.2f %.2f x %.2f\n", obj.label, obj.prob,
-                // obj.rect.x, obj.rect.y, obj.rect.width, obj.rect.height);
-
-        cv::rectangle(rgb, obj.rect, color);
-
-        char text[256];
-        sprintf(text, "%s %.1f%%", class_names[obj.label], obj.prob * 100);
-
-        int baseLine = 0;
-        cv::Size label_size = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
-
-        int x = obj.rect.x;
-        int y = obj.rect.y - label_size.height - baseLine;
-        if (y < 0)
-            y = 0;
-        if (x + label_size.width > rgb.cols)
-            x = rgb.cols - label_size.width;
-
-        cv::rectangle(rgb, cv::Rect(cv::Point(x, y), cv::Size(label_size.width, label_size.height + baseLine)),
-                      cv::Scalar(255, 255, 255), -1);
-
-        cv::putText(rgb, text, cv::Point(x, y + label_size.height),
-                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0));
+    for (const auto& obj : objects) {
+        const cv::Scalar color = (obj.label==2 || obj.label==5 || obj.label==7)
+            ? cv::Scalar(96,234,198) : cv::Scalar(244,193,92);
+        cv::rectangle(rgb, obj.rect, color, 1, cv::LINE_AA);
+        char text[128];
+        snprintf(text,sizeof(text),"%s  %.0f%%",class_names[obj.label],obj.prob*100);
+        int base=0;
+        const double scale=0.38;
+        cv::Size size=cv::getTextSize(text,cv::FONT_HERSHEY_SIMPLEX,scale,1,&base);
+        int label_w=std::min(rgb.cols,size.width+10);
+        int x=std::max(0,std::min((int)obj.rect.x,rgb.cols-label_w));
+        int y=std::max(0,(int)obj.rect.y-size.height-base-8);
+        int label_h=std::min(rgb.rows-y,size.height+base+8);
+        cv::Rect box(x,y,label_w,label_h);
+        cv::Mat dark(rgb(box).size(),rgb.type(),cv::Scalar(12,22,24));
+        cv::addWeighted(rgb(box),0.2,dark,0.8,0,rgb(box));
+        cv::rectangle(rgb,cv::Rect(x,y,2,label_h),color,-1);
+        cv::putText(rgb,text,cv::Point(x+5,y+size.height+3),cv::FONT_HERSHEY_SIMPLEX,scale,color,1,cv::LINE_AA);
     }
-
     return 0;
 }
 

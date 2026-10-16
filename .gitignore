@@ -11,4 +11,6 @@ android/app/src/main/jni/ncnn-*/
 android/app/src/main/jni/opencv-mobile-*/
 *.keystore
 *.jks
+*.p12
 __pycache__/
+.codex-remote-attachments/

@@ -1,19 +1,20 @@
 # wandervision
 
-轻量级道路智能巡检课程设计。当前交付 **0.1.0 ARM64 Android 测试版**：完全本地运行的 YOLOv8 Nano + NCNN 摄像头检测。
+轻量级道路智能巡检课程设计。当前交付 **0.2.0 FIELD INSTRUMENT**：专业相机风格界面，完全本地运行的 YOLOv8 Nano / Small + NCNN 摄像头检测。
 
 - **通用物体**：COCO 80 类，可用杯子、瓶子、椅子、手机、键盘等室内物品验证。
 - **车辆**：同一 COCO 模型，仅显示 bicycle、car、motorcycle、bus、truck；不是另行训练的专用车辆模型。
 - 输入尺寸 320 / 480 / 640；CPU 默认，支持 Vulkan GPU；不含 Turnip 自定义驱动。
-- Android 7.0+、ARM64、Camera2；目标测试手机为骁龙 8 Gen 2。
+- **纯取景**：不执行推理，便于检查相机、方向和界面；新增真实检测统计、构图网格、相册截图、最近记录与系统分享。
+- Android 7.0+、ARM64、Camera2；截图保存需 Android10+。目标设备小米13，6.36英寸2400×1080/20:9；dp与系统安全区域适配，横屏控制区放在右侧。
 
-下载与反馈见 [GitHub Releases](https://github.com/lvshanyewu/wandervision/releases) 和 [测试说明](docs/releases/0.1.0.md)。构建通过不代表真机检测效果、性能和稳定性已经验证。
+下载与反馈见 [GitHub Releases](https://github.com/lvshanyewu/wandervision/releases) 和 [0.2.0测试说明](docs/releases/0.2.0.md)。0.1.0已获用户正常启动与夜间车辆识别可用的反馈；0.2.0仍需重新真机确认，Small效果和速度不预先承诺。
 
 ## 工程
 
 `android/` 是可直接导入 Android Studio 的工程，`tools/` 是依赖准备、ADB MCP 桥接与 APK 检查脚本，`.handoff/` 是 Vervision 项目知识、阶段与进度记录。
 
-首版保留上游 Java/JNI 命名空间 `com.tencent.yolov8ncnn` 以减少推理链路改动；安装包名独立为 `io.github.lvshanyewu.wandervision`，可与原版并存。界面先保留简化原生控件；完整 Material Design 3 巡检界面放在后续阶段。
+保留上游 Java/JNI 命名空间 `com.tencent.yolov8ncnn`；安装包名独立为 `io.github.lvshanyewu.wandervision`，可与原版并存。界面采用原生View、自绘仪器外观与渐变控件，无WebView；实时状态来自JNI。推理输出布局与模型预处理沿用上游，预览按实际显示方向旋转并等比裁切。
 
 ## 构建
 
@@ -38,14 +39,16 @@ python tools/adb_mcp.py --server D:/Androiddevedoc/adb-mcp/adb-mcp.exe --sdk D:/
 python tools/adb_mcp.py --server D:/Androiddevedoc/adb-mcp/adb-mcp.exe --sdk D:/AndroidStudioSDK gradle_build '{"project_dir":"D:/wandervision/android","task":"assembleDebug","args":["--console=plain"]}'
 ```
 
-GitHub Actions 对 main 和 v* 标签执行构建、lint 和包内容检查，标签构建自动创建预发布版。该版本使用测试签名，请勿用于生产；本地与 CI 测试签名不同，切换来源安装可能需要卸载旧版（会清除应用数据）。
+GitHub Actions 对 main 和 v* 标签执行构建、lint 和包内容/签名检查，标签构建自动预发布。0.2.0起CI使用专用固定测试签名，私钥由仓库Secrets提供，不提交Git；本地可选用 `WV_KEYSTORE_PATH` / `WV_STORE_PASSWORD`（别名wandervision）使用相同身份，否则为本机默认debug签名。0.1.0升级若签名冲突需先卸载，会清除应用数据。
+
+模拟器界面测试可使用 `assembleDebug -PtestAbi=x86_64`，此选项仅供开发验证；交付默认ARM64，`tools/check_apk.py`会拒绝x86包。不要把模拟器FPS当作小米13性能。
 
 ## 后续路线
 
-真机反馈 → 道路病害模型兼容/移植 → MD3 巡检界面与 GPS/事件/截图 → 轻量 API 和数据库 → Web 地图与统计 → 指标、课设文档与演示。车牌和遗留物检测为可选扩展；首版不含病害模型、GPS、上传、后端或 Web。
+当前已完成仪器相机UI、截图和本地统计。后续：真机反馈 → 道路病害模型 → GPS与本地事件库 → 轻量API/数据库/事件同步 → Web地图统计 → 课设材料。车牌和遗留物检测可选；GPS、云同步、后端和Web尚未接入，界面不显示虚构的位置或同步成功状态。
 
 ## 来源与许可
 
-基于 [nihui/ncnn-android-yolov8](https://github.com/nihui/ncnn-android-yolov8)，固定来源提交 `f1ac75ec54ccb3817a9eba620fe51da8bdcf87ca`。模型直接使用该提交中已经适配动态形状的 COCO YOLOv8n NCNN 文件，没有重新训练或重新导出。
+基于 [nihui/ncnn-android-yolov8](https://github.com/nihui/ncnn-android-yolov8)，固定来源提交 `f1ac75ec54ccb3817a9eba620fe51da8bdcf87ca`。Nano和Small均直接使用该提交已适配动态形状的COCO NCNN文件，没有重新训练或重新导出。
 
 本项目以 AGPL-3.0 发布；上游 BSD/Apache 等许可声明继续保留。详情见 [第三方说明](THIRD_PARTY_NOTICES.md) 和 `licenses/`。

@@ -14,8 +14,9 @@ with zipfile.ZipFile(apk) as z:
         assert z.getinfo(name).file_size > 0
     assert {n.split('/')[1] for n in names if n.startswith('lib/')} == {'arm64-v8a'}
     assert {n for n in names if n.startswith('assets/') and '.ncnn.' in n} == {
-        'assets/yolov8n.ncnn.param', 'assets/yolov8n.ncnn.bin'}
+        'assets/yolov8n.ncnn.param', 'assets/yolov8n.ncnn.bin',
+        'assets/yolov8s.ncnn.param', 'assets/yolov8s.ncnn.bin'}
     elf = z.read('lib/arm64-v8a/libyolov8ncnn.so')
     assert elf[:5] == b'\x7fELF\x02' and int.from_bytes(elf[18:20], 'little') == 183, 'Not AArch64 ELF'
-print('PASS: ARM64 ELF, manifest, dex and exactly one COCO nano model pair')
+print('PASS: ARM64 ELF, manifest, dex and COCO Nano + Small model pairs')
 print('SHA256', hashlib.file_digest(apk.open('rb'), 'sha256').hexdigest())

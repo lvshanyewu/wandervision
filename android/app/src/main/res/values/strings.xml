@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">wandervision</string>
-    <string-array name="task_array"><item>通用物体</item><item>车辆</item></string-array>
-    <string-array name="model_array"><item>Nano · 320</item><item>Nano · 480</item><item>Nano · 640</item></string-array>
-    <string-array name="cpugpu_array"><item>CPU</item><item>GPU · Vulkan</item></string-array>
 </resources>

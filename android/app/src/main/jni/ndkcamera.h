@@ -16,6 +16,8 @@
 #define NDKCAMERA_H
 
 #include <android/looper.h>
+#include <atomic>
+#include <mutex>
 #include <android/native_window.h>
 #include <android/sensor.h>
 #include <camera/NdkCameraDevice.h>
@@ -68,12 +70,12 @@ public:
     virtual void on_image(const unsigned char* nv21, int nv21_width, int nv21_height) const;
 
 public:
-    mutable int accelerometer_orientation;
-
+    void configure_view(int rotation, int width, int height);
 private:
-    ASensorManager* sensor_manager;
-    mutable ASensorEventQueue* sensor_event_queue;
-    const ASensor* accelerometer_sensor;
+    std::atomic<int> display_rotation{0};
+    std::atomic<int> viewport_width{480};
+    std::atomic<int> viewport_height{640};
+    mutable std::mutex window_mutex;
     ANativeWindow* win;
 };
 
