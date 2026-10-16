@@ -218,12 +218,17 @@ int NdkCamera::open(int _camera_facing)
     camera_facing = _camera_facing;
 
     camera_manager = ACameraManager_create();
+    if (!camera_manager) return -1;
 
     // find front camera
     std::string camera_id;
     {
         ACameraIdList* camera_id_list = 0;
-        ACameraManager_getCameraIdList(camera_manager, &camera_id_list);
+        if (ACameraManager_getCameraIdList(camera_manager, &camera_id_list) != ACAMERA_OK || !camera_id_list)
+        {
+            close();
+            return -1;
+        }
 
         for (int i = 0; i < camera_id_list->numCameras; ++i)
         {
@@ -281,7 +286,11 @@ int NdkCamera::open(int _camera_facing)
         camera_device_state_callbacks.onDisconnected = onDisconnected;
         camera_device_state_callbacks.onError = onError;
 
-        ACameraManager_openCamera(camera_manager, camera_id.c_str(), &camera_device_state_callbacks, &camera_device);
+        if (camera_id.empty() || ACameraManager_openCamera(camera_manager, camera_id.c_str(), &camera_device_state_callbacks, &camera_device) != ACAMERA_OK || !camera_device)
+        {
+            close();
+            return -1;
+        }
     }
 
     // capture request
@@ -306,7 +315,11 @@ int NdkCamera::open(int _camera_facing)
 
         ACaptureSessionOutputContainer_add(capture_session_output_container, capture_session_output);
 
-        ACameraDevice_createCaptureSession(camera_device, capture_session_output_container, &camera_capture_session_state_callbacks, &capture_session);
+        if (ACameraDevice_createCaptureSession(camera_device, capture_session_output_container, &camera_capture_session_state_callbacks, &capture_session) != ACAMERA_OK || !capture_session)
+        {
+            close();
+            return -1;
+        }
 
         ACameraCaptureSession_captureCallbacks camera_capture_session_capture_callbacks;
         camera_capture_session_capture_callbacks.context = this;
@@ -318,7 +331,11 @@ int NdkCamera::open(int _camera_facing)
         camera_capture_session_capture_callbacks.onCaptureSequenceAborted = onCaptureSequenceAborted;
         camera_capture_session_capture_callbacks.onCaptureBufferLost = 0;
 
-        ACameraCaptureSession_setRepeatingRequest(capture_session, &camera_capture_session_capture_callbacks, 1, &capture_request, nullptr);
+        if (ACameraCaptureSession_setRepeatingRequest(capture_session, &camera_capture_session_capture_callbacks, 1, &capture_request, nullptr) != ACAMERA_OK)
+        {
+            close();
+            return -1;
+        }
     }
 
     return 0;

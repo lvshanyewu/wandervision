@@ -30,7 +30,7 @@ import android.widget.Toast;
 public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private static final int REQUEST_CAMERA = 100;
     private final YOLOv8Ncnn detector = new YOLOv8Ncnn();
-    private int facing = 0;
+    private int facing = 1;
     private int mode = 0;
     private int resolution = 0;
     private int backend = 0;
@@ -110,6 +110,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     }
     @Override public void surfaceCreated(SurfaceHolder holder) { }
     @Override public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        closeCamera();
         detector.setOutputWindow(holder.getSurface());
         surfaceReady = true;
         openCameraIfReady();

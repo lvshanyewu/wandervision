@@ -217,9 +217,7 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_openCamera(JNI
 
     __android_log_print(ANDROID_LOG_DEBUG, "ncnn", "openCamera %d", facing);
 
-    g_camera->open((int)facing);
-
-    return JNI_TRUE;
+    return g_camera->open((int)facing) == 0 ? JNI_TRUE : JNI_FALSE;
 }
 
 // public native boolean closeCamera();
