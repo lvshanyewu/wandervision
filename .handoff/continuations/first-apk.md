@@ -5,13 +5,13 @@ id: "first-apk"
 title: "P0 首个 ARM64 APK"
 module_id: "android"
 status: "open"
-next_step: "完成 NDK/CMake 安装和上游依赖获取，进行首个构建。"
-updated_at: "2026-10-16T21:02:08+08:00"
+next_step: "跟进 GitHub Actions 编译诊断，完成本地 NDK 安装后通过 ADB MCP 构建；检查签名与包内容并发布 Release。"
+updated_at: "2026-10-16T21:09:13+08:00"
 ---
 
 # 已完成
-项目初始化与 Git 克隆；Vervision 路线和 Android 模块已记录；JBR21 与 SDK 检查；ADB MCP 0.23.0 stdio 初始化与 tools/list/list_devices 调用成功，无设备连接。
-# 进行中
-上游源码下载；NDK29/CMake3.31.5 安装。已有 Gradle9.4.1/AGP9.2.1 缓存可复用。
-# 待完成
-ARM64 构建、APK 校验、文档许可、GitHub 提交和 Release；真机效果等待用户反馈。
+Vervision 项目与路线/Android 模块；GitHub main 首次提交 a6ba2ba 已推送。固定上游 f1ac75e，保留原生摄像头和动态形状检测链路。单 COCO Nano 模型；通用物体/车辆类过滤；CPU/Vulkan；320/480/640。独立安装包名、权限回调和重复开启防护。来源许可、构建和真机测试文档。
+# 构建与检查
+ADB MCP stdio/tools/list/list_devices 已验证。NCNN20260526 和 OpenCV4.13.0/v36 下载及 SHA256 通过。GitHub Actions 38905617210 进行中。本地 JBR21/Gradle9.4.1/AGP9.2.1 配置已解析；当前 NDK 安装未完成导致 CXX1101，正通过已校验的官方清单链接下载 NDK；尚未产生 APK。
+# 验证边界
+无设备连接。真机相机、检测、FPS、稳定性待用户测试。
