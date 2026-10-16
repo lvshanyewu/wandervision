@@ -29,7 +29,14 @@ cd ..
 python tools/check_apk.py android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-APK：`android/app/build/outputs/apk/debug/app-debug.apk`。首次依赖下载需要网络；原生依赖固定版本并核对 SHA-256，不进入 Git。Windows 可在 `android/local.properties` 配置 `sdk.dir=D:/AndroidStudioSDK`。
+APK：`android/app/build/outputs/apk/debug/app-debug.apk`。首次依赖下载需要网络；原生依赖固定版本并核对 SHA-256，不进入 Git。Windows 可在 `android/local.properties` 配置 `sdk.dir=D\:/AndroidStudioSDK`（属性文件中盘符冒号需要转义）。
+
+已安装 ADB MCP 时，可通过可选桥接脚本调用它（工具不在 PATH 时传 `--server`，SDK 不在环境中时传 `--sdk`）：
+
+```powershell
+python tools/adb_mcp.py --server D:/Androiddevedoc/adb-mcp/adb-mcp.exe --sdk D:/AndroidStudioSDK list_devices
+python tools/adb_mcp.py --server D:/Androiddevedoc/adb-mcp/adb-mcp.exe --sdk D:/AndroidStudioSDK gradle_build '{"project_dir":"D:/wandervision/android","task":"assembleDebug","args":["--console=plain"]}'
+```
 
 GitHub Actions 对 main 和 v* 标签执行构建、lint 和包内容检查，标签构建自动创建预发布版。该版本使用测试签名，请勿用于生产；本地与 CI 测试签名不同，切换来源安装可能需要卸载旧版（会清除应用数据）。
 

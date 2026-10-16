@@ -6,13 +6,13 @@ title: "目标与分阶段路线"
 summary: "本地视觉优先的轻量道路巡检课程设计；当前交付首个 APK。"
 aliases: []
 tags: ["规划", "MVP"]
-sources: [".handoff/overview.md"]
+sources: ["README.md", "AGENTS.md", "docs/releases/0.1.0.md"]
 dependencies: []
 related_modules: []
 business_rules: []
 invariants: []
 consumers: []
-updated_at: "2026-10-16T21:01:07+08:00"
+updated_at: "2026-10-16T21:11:48+08:00"
 ---
 
 # 目标
