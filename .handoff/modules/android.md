@@ -12,7 +12,7 @@ related_modules: []
 business_rules: []
 invariants: []
 consumers: []
-updated_at: "2026-10-16T23:21:27+08:00"
+updated_at: "2026-10-16T23:23:48+08:00"
 ---
 
 # 当前实现
@@ -35,4 +35,4 @@ GitHub Actions执行assembleDebug lintDebug、模型/ABI/签名检查，v*标签
 Windows11；Android Studio D:/AndroidStudio；SDK D:/AndroidStudioSDK。ADB MCP 路径 D:/Androiddevedoc/adb-mcp/adb-mcp.exe，可通过 tools/adb_mcp.py 调用。不要将机器路径或签名私钥放入构建源码。
 # 验证边界与后续
 
-用户已反馈0.1.0正常启动且黑夜车辆识别尚可；不能推断所有FPS/GPU/长时间稳定性已通过。0.2.0在1080x2400 x86_64模拟器检查UI、模型切换、横竖屏、纯取景、仪表盘与截图持久化；模拟器不是小米13性能证据。真机检测、方向、GPU与发热仍待用户验收。后续病害模型、GPS事件、服务端同步/Web保持规划状态。发布与量化检查写continuation和docs/releases。
+用户已反馈0.1.0正常启动且黑夜车辆识别尚可，随后明确0.2.0功能性没有问题；这不等于量化FPS/GPU/发热/长时间稳定性全项通过。0.3.0仅重绘界面，保留0.2模型与识别逻辑；本地构建和lint通过，在1080×2400 x86_64模拟器检查横竖屏、设置/仪表盘、截图与缩略图记录。模拟器不是小米13性能证据，新UI的真机可读性、遮挡及交互待用户反馈。后续病害模型、GPS事件、服务端同步/Web保持规划状态。发布与量化检查写continuation和docs/releases。
