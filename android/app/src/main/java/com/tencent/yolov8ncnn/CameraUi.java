@@ -16,6 +16,7 @@ final class CameraUi {
     interface Actions {
         void mode(int value); void model(); void size(); void engine(); void shutter();
         void history(); void flip(); void settings(); void dashboard();
+        void locationSettings();
     }
     static final int INK=0xff0c0d0f, PANEL=0xff191b1f, LINE=0xff35383e;
     static final int WHITE=0xffedf0f3, MUTED=0xff999fa8;
@@ -32,6 +33,7 @@ final class CameraUi {
     final GridOverlay overlay;
     private final Gauge fpsGauge, confidenceGauge;
     private final TextView profileBadge;
+    private final TextView locationStatus;
     private final boolean landscape;
     private final ArrayList<Dialog> sheets=new ArrayList<>();
 
@@ -117,7 +119,7 @@ final class CameraUi {
         View track=navItem("pin","轨迹",false,null);track.setAlpha(.3f);track.setEnabled(false);track.setContentDescription("轨迹，尚未接入");nav.addView(track,new LinearLayout.LayoutParams(0,-1,1));
         nav.addView(navItem("settings","工具",false,actions::settings),new LinearLayout.LayoutParams(0,-1,1));
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,dp(landscape?48:53));np.topMargin=dp(landscape?6:7);tools.addView(nav,np);
-        TextView note=text("本地推理  /  无位置数据  /  未连接云端",8,MUTED);note.setGravity(Gravity.CENTER);tools.addView(note,new LinearLayout.LayoutParams(-1,dp(landscape?16:18)));
+        locationStatus=text("定位准备中",9,MUTED);locationStatus.setGravity(Gravity.CENTER);locationStatus.setSingleLine(true);locationStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);locationStatus.setContentDescription("前台定位状态，点击设置");locationStatus.setOnClickListener(v->actions.locationSettings());tools.addView(locationStatus,new LinearLayout.LayoutParams(-1,dp(landscape?16:18)));
     }
 
     void profile(int mode,int capacity,int resolution,int backend,int captures) {
@@ -188,11 +190,12 @@ final class CameraUi {
         TextView close=text("×",27,MUTED);close.setGravity(Gravity.CENTER);close.setContentDescription("关闭面板");close.setOnClickListener(v->dialog.dismiss());heading.addView(close,new LinearLayout.LayoutParams(dp(44),dp(44)));box.addView(heading);
         TextView description=text(subtitle,11,MUTED);description.setLineSpacing(dp(3),1);description.setPadding(0,dp(7),0,dp(12));box.addView(description);
         ScrollView scroll=new ScrollView(activity);scroll.setTag("sheet-scroll");scroll.setFillViewport(false);scroll.addView(box);dialog.setContentView(scroll);
-        Window window=dialog.getWindow();if(window!=null){window.setBackgroundDrawableResource(android.R.color.transparent);window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);WindowManager.LayoutParams w=window.getAttributes();w.dimAmount=.48f;w.gravity=landscape?Gravity.RIGHT:Gravity.BOTTOM;window.setAttributes(w);}
+        Window window=dialog.getWindow();if(window!=null){window.setBackgroundDrawableResource(android.R.color.transparent);window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);WindowManager.LayoutParams w=window.getAttributes();w.dimAmount=.48f;w.gravity=Gravity.BOTTOM;w.windowAnimations=R.style.SheetMotion;window.setAttributes(w);}
         dialog.setOnShowListener(d->{if(window!=null)window.setLayout(Math.min(activity.getResources().getDisplayMetrics().widthPixels-dp(24),dp(440)),-2);});
         sheets.add(dialog);dialog.setOnDismissListener(d->sheets.remove(dialog));return dialog;
     }
     void dismissSheets(){for(Dialog d:new ArrayList<>(sheets))d.dismiss();sheets.clear();}
+    void location(String value){locationStatus.setText(value);}
     LinearLayout sheetBody(Dialog d){return (LinearLayout)((ScrollView)d.findViewById(android.R.id.content).findViewWithTag("sheet-scroll")).getChildAt(0);}
     void dashboardTiles(LinearLayout box,float[] stats,boolean fresh,boolean preview,int captures,String modelName,String actualEngine) {
         LinearLayout first=row();

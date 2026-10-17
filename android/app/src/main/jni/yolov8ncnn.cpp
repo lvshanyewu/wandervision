@@ -23,6 +23,10 @@
 #include <string>
 #include <algorithm>
 #include <vector>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
+#include <time.h>
 
 #include <platform.h>
 #include <gpu.h>
@@ -65,6 +69,15 @@ static float g_stats[7] = {0}; // fps, inference ms, visible detections, max con
 static double g_last_frame = 0;
 static double g_frame_interval = 0;
 static ncnn::Mutex lock;
+// Copy only the next requested frame, not every preview frame. Pixels and objects
+// are captured under the inference lock before this same annotated frame is rendered.
+static std::mutex capture_lock;
+static std::condition_variable capture_ready;
+static bool capture_wanted = false;
+static cv::Mat capture_rgb;
+static std::vector<Object> capture_objects;
+static float capture_stats[7];
+static jlong capture_elapsed_ns = 0, capture_frame_id = 0, frame_counter = 0;
 
 class MyNdkCamera : public NdkCameraWindow
 {
@@ -82,8 +95,8 @@ void MyNdkCamera::on_image_render(cv::Mat& rgb) const {
     }
     g_last_frame = now;
     g_stats[1]=0; g_stats[2]=0; g_stats[3]=0;
+    std::vector<Object> objects;
     if (g_yolov8 && g_detection_enabled) {
-        std::vector<Object> objects;
         double begin = ncnn::get_current_time();
         g_yolov8->detect(rgb, objects);
         g_stats[1] = ncnn::get_current_time()-begin;
@@ -97,6 +110,19 @@ void MyNdkCamera::on_image_render(cv::Mat& rgb) const {
         g_yolov8->draw(rgb, objects);
     }
     g_stats[4]++;
+    ++frame_counter;
+    std::lock_guard<std::mutex> capture_guard(capture_lock);
+    if (capture_wanted) {
+        rgb.copyTo(capture_rgb);
+        capture_objects = objects;
+        std::copy(g_stats, g_stats + 7, capture_stats);
+        struct timespec ts;
+        clock_gettime(CLOCK_BOOTTIME, &ts);
+        capture_elapsed_ns = (jlong)ts.tv_sec * 1000000000LL + ts.tv_nsec;
+        capture_frame_id = frame_counter;
+        capture_wanted = false;
+        capture_ready.notify_one();
+    }
 }
 
 static MyNdkCamera* g_camera = 0;
@@ -210,6 +236,37 @@ JNIEXPORT jfloatArray JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_getStats(JN
     ncnn::MutexLockGuard guard(lock);
     jfloatArray result=env->NewFloatArray(7);
     env->SetFloatArrayRegion(result,0,7,g_stats);
+    return result;
+}
+
+JNIEXPORT jobject JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_captureFrame(JNIEnv* env, jobject) {
+    std::unique_lock<std::mutex> guard(capture_lock);
+    capture_wanted = true;
+    if (!capture_ready.wait_for(guard, std::chrono::milliseconds(2000), []{ return !capture_wanted; })) {
+        capture_wanted = false;
+        return nullptr;
+    }
+    if (capture_rgb.empty()) return nullptr;
+    const int width = capture_rgb.cols, height = capture_rgb.rows;
+    std::vector<jint> pixels(width * height);
+    for (int y=0; y<height; y++) {
+        const unsigned char* row = capture_rgb.ptr<unsigned char>(y);
+        for (int x=0; x<width; x++) pixels[y*width+x] = (jint)(0xff000000u | (row[x*3]<<16) | (row[x*3+1]<<8) | row[x*3+2]);
+    }
+    std::vector<float> boxes;
+    for (const auto& o : capture_objects) {
+        boxes.insert(boxes.end(), {(float)o.label, o.prob, o.rect.x/width, o.rect.y/height, o.rect.width/width, o.rect.height/height});
+    }
+    jintArray data=env->NewIntArray(pixels.size());
+    jfloatArray metrics=env->NewFloatArray(7), detections=env->NewFloatArray(boxes.size());
+    if (!data || !metrics || !detections) return nullptr;
+    env->SetIntArrayRegion(data,0,pixels.size(),pixels.data());
+    env->SetFloatArrayRegion(metrics,0,7,capture_stats);
+    if (!boxes.empty()) env->SetFloatArrayRegion(detections,0,boxes.size(),boxes.data());
+    jclass cls=env->FindClass("com/tencent/yolov8ncnn/FrameCapture");
+    jmethodID ctor=env->GetMethodID(cls,"<init>","([III[F[FJJ)V");
+    jobject result=env->NewObject(cls,ctor,data,width,height,metrics,detections,capture_frame_id,capture_elapsed_ns);
+    capture_rgb.release(); capture_objects.clear();
     return result;
 }
 
