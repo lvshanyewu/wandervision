@@ -12,7 +12,7 @@ final class InspectionReport {
     static String utc(long time){SimpleDateFormat f=new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",Locale.US);f.setTimeZone(TimeZone.getTimeZone("UTC"));return f.format(new Date(time));}
     static JSONObject create(FrameCapture frame,int capacity,int input,int mode,int facing,int requestedBackend,LocationTracker.Fix fix,long time,String installationId) throws Exception {
         JSONObject j=new JSONObject();String id=UUID.randomUUID().toString();
-        j.put("schema_version","1.0");j.put("event_id",id);j.put("app_version","3.1.0");j.put("captured_at",utc(time));j.put("captured_at_epoch_ms",time);j.put("capture_elapsed_ns",frame.elapsedNanos);
+        j.put("schema_version","1.0");j.put("event_id",id);j.put("app_version","3.2.0");j.put("captured_at",utc(time));j.put("captured_at_epoch_ms",time);j.put("capture_elapsed_ns",frame.elapsedNanos);
         JSONObject source=new JSONObject();source.put("installation_id",installationId);source.put("manufacturer",android.os.Build.MANUFACTURER);source.put("device_model",android.os.Build.MODEL);source.put("android_api",android.os.Build.VERSION.SDK_INT);j.put("source",source);
         // Flat compatibility fields keep pre-3.1 history readable on upgrade.
         j.put("time",time);j.put("model",capacity==0?"Nano":"Small");j.put("size",input);j.put("mode",mode==0?"通用":mode==1?"车辆":"取景");j.put("fps",frame.stats[0]);j.put("objects",frame.detections.length/6);
@@ -30,7 +30,7 @@ final class InspectionReport {
         Bitmap report=Bitmap.createBitmap(w,header+frame.image.getHeight()+footer,Bitmap.Config.ARGB_8888);
         Canvas c=new Canvas(report);c.drawColor(CameraUi.INK);Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
         p.setColor(CameraUi.YELLOW);c.drawRect(0,0,8*s,header,p);p.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));p.setTextSize(32*s);c.drawText("wandervision",28*s,48*s,p);
-        p.setTextSize(19*s);p.setColor(CameraUi.MUTED);c.drawText("FIELD RECORD / 3.1.0",w-275*s,47*s,p);
+        p.setTextSize(19*s);p.setColor(CameraUi.MUTED);c.drawText("FIELD RECORD / 3.2.0",w-275*s,47*s,p);
         c.drawBitmap(frame.image,0,header,null);
         float y=header+frame.image.getHeight();p.setColor(CameraUi.YELLOW);c.drawRect(24*s,y+20*s,w-24*s,y+23*s,p);
         p.setTypeface(Typeface.create("sans-serif",Typeface.NORMAL));p.setTextSize(24*s);
@@ -39,13 +39,13 @@ final class InspectionReport {
         String locDetail=fix.location==null?"定位未就绪 · 本次不填入坐标":String.format(Locale.US,"位置采样 %.0f 秒前 / %s%s",fix.age(frame.elapsedNanos)/1000f,fix.location.getProvider(),fix.location.isFromMockProvider()?" / 模拟位置":"");
         String[] lines={time,"WGS84  "+fix.label(frame.elapsedNanos),locDetail,record.getString("mode")+"  /  YOLOv8 "+record.getString("model")+"  /  "+record.getInt("size")+" px  /  "+inf.getString("actual_backend").toUpperCase(Locale.US),
             inf.getBoolean("enabled")?String.format(Locale.US,"当前帧 %d 个目标  ·  %.1f FPS  ·  %.1f ms",record.getInt("objects"),frame.stats[0],frame.stats[1]):"纯取景 · 未执行识别",
-            "记录 "+record.getString("event_id").substring(0,8)+"  /  FRAME "+frame.frameId,"本地保存 · 未上传  /  识别框与结果来自同一帧"};
+            "记录 "+record.getString("event_id").substring(0,8)+"  /  FRAME "+frame.frameId,"本地原图 · 上传状态以记录回执为准"};
         for(int i=0;i<lines.length;i++){p.setColor(i==1?CameraUi.YELLOW:i==2||i==6?CameraUi.MUTED:CameraUi.WHITE);c.drawText(lines[i],28*s,y+(64+i*40)*s,p);}
         return report;
     }
     static void exif(ExifInterface e,JSONObject record) throws Exception {
         e.setAttribute(ExifInterface.TAG_DATETIME,new SimpleDateFormat("yyyy:MM:dd HH:mm:ss",Locale.US).format(new Date(record.getLong("time"))));
-        e.setAttribute(ExifInterface.TAG_IMAGE_DESCRIPTION,"wandervision 3.1.0 event="+record.getString("event_id"));
+        e.setAttribute(ExifInterface.TAG_IMAGE_DESCRIPTION,"wandervision 3.2.0 event="+record.getString("event_id"));
         JSONObject loc=record.getJSONObject("location");String status=loc.getString("status");
         if((status.equals("fresh")||status.equals("approximate"))&&!loc.isNull("latitude")) {
             double lat=loc.getDouble("latitude"),lon=loc.getDouble("longitude");

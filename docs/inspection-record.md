@@ -1,6 +1,6 @@
 # 巡检记录契约 v1（3.1.0）
 
-每次手动取景产生：系统相册JPEG + 应用私有目录 `files/reports/<event_id>.json`。图片和JSON可通过系统分享导出，JSON另有系统文件选择器保存入口。本版没有INTERNET/后台定位权限，没有自动上传、服务端确认或自动去重。JSON的`sync.state=local_only`明确表示未上传，不等于已有可靠上传队列。
+每次手动取景产生：系统相册JPEG + 应用私有目录 `files/reports/<event_id>.json`。图片和JSON可通过系统分享导出，JSON另有系统文件选择器保存入口。此处描述3.1生成的原始记录；3.2新增可选的[监控中心连接与手动上传](android-monitor.md)，原始JPEG/JSON仍不改写，服务器回执另存。`sync.state=local_only`表示生成时状态，不是当前上传状态，也不等于已有可靠自动上传队列。始终不请求后台定位权限。
 
 ## 字段
 

@@ -39,6 +39,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
     private CameraUi ui;
     private SharedPreferences preferences;
     private LocationTracker location;
+    private MonitorLink monitor;
+    private MonitorUi monitorUi;
     private String exportId;
     private String installationId;
     private int facing=1,mode=0,capacity=0,resolution=0,backend=0,generation;
@@ -73,6 +75,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         try{captures=new JSONArray(preferences.getString("captures","[]"));}catch(JSONException ignored){captures=new JSONArray();}
         ui=new CameraUi(this,this); setContentView(ui.root); ui.root.requestApplyInsets();
         location=new LocationTracker(this,()->{if(!destroyed)ui.location(location.label());});
+        monitor=new MonitorLink(this,this::heartbeatSnapshot,()->{if(!destroyed&&monitorUi!=null)monitorUi.refreshStatus();});
+        monitorUi=new MonitorUi(this,ui,monitor);
         ui.surface.getHolder().setFormat(PixelFormat.RGBA_8888);ui.surface.getHolder().addCallback(this);
         ui.overlay.grid=preferences.getBoolean("grid",false); refreshProfile();reload();
     }
@@ -103,10 +107,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
     private void closeCamera(){if(cameraOpen)detector.closeCamera();cameraOpen=false;}
     @Override public void onResume(){super.onResume();resumed=true;
         if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED) requestPermissions(new String[]{Manifest.permission.CAMERA},REQUEST_CAMERA);
-        else {openCameraIfReady();startLocation();}main.removeCallbacks(poll);main.post(poll);
+        else {openCameraIfReady();startLocation();}main.removeCallbacks(poll);main.post(poll);monitor.foreground(true);
     }
-    @Override public void onPause(){resumed=false;main.removeCallbacks(poll);location.stop();closeCamera();super.onPause();}
-    @Override public void onDestroy(){destroyed=true;generation++;main.removeCallbacksAndMessages(null);ui.dismissSheets();super.onDestroy();}
+    @Override public void onPause(){resumed=false;monitor.foreground(false);main.removeCallbacks(poll);location.stop();closeCamera();super.onPause();}
+    @Override public void onDestroy(){destroyed=true;monitor.destroy();generation++;main.removeCallbacksAndMessages(null);ui.dismissSheets();super.onDestroy();}
     @Override public void onSaveInstanceState(Bundle state){state.putString("export_id",exportId);super.onSaveInstanceState(state);}
     @Override public void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);
         if(request!=102)return;String id=exportId;exportId=null;
@@ -126,7 +130,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
     }
     private void requestLocation(){preferences.edit().putBoolean("location_asked",true).apply();requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},REQUEST_LOCATION);}
     @Override public void locationSettings(){
-        Dialog d=ui.sheet("前台定位",location.label()+"\n请求间隔约10秒，实际更新取决于信号与系统；超过30秒标为过期。坐标为WGS84，仅随手动取景保存在本机。");LinearLayout box=ui.sheetBody(d);
+        Dialog d=ui.sheet("前台定位",location.label()+"\n请求间隔约10秒，实际更新取决于信号与系统；超过30秒标为过期。坐标为WGS84；启用监控连接时随前台心跳上报，取景照片保留位置。");LinearLayout box=ui.sheetBody(d);
         boolean enabled=preferences.getBoolean("location_enabled",true);
         sheetRow(box,(enabled?"●  ":"○  ")+"启用前台定位",CameraUi.YELLOW,()->{preferences.edit().putBoolean("location_enabled",!enabled).apply();d.dismiss();if(resumed)startLocation();});
         sheetRow(box,"授予 / 重试定位权限",CameraUi.WHITE,()->{d.dismiss();preferences.edit().putBoolean("location_enabled",true).apply();requestLocation();});
@@ -155,15 +159,16 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         row.setOnClickListener(v->{CameraUi.haptic(v);click.run();});row.setFocusable(true);return row;
     }
     @Override public void settings(){
-        Dialog d=ui.sheet("仪器设置","识别与记录在本机完成；定位仅前台更新，本版不上传数据。");LinearLayout box=ui.sheetBody(d);
+        Dialog d=ui.sheet("仪器设置","识别在本机完成；可连接公开课程监控中心，位置仅前台更新。照片由你逐张上传。");LinearLayout box=ui.sheetBody(d);
         sheetRow(box,(ui.overlay.grid?"●  ":"○  ")+"三分构图网格",CameraUi.WHITE,()->{ui.overlay.grid=!ui.overlay.grid;ui.overlay.invalidate();preferences.edit().putBoolean("grid",ui.overlay.grid).apply();d.dismiss();});
         sheetRow(box,"实时检测仪表盘",CameraUi.WHITE,()->{d.dismiss();dashboard();});
         sheetRow(box,"定位与位置权限",CameraUi.WHITE,()->{d.dismiss();locationSettings();});
-        sheetRow(box,"传输与同步  ·  本地记录",CameraUi.MUTED,()->{d.dismiss();Dialog info=ui.sheet("本地优先","每次取景保存带识别框和定位信息的照片，以及持久化JSON。可在记录详情分享照片+JSON；尚未配置监控中心，不自动上传。最近列表显示30张，JSON保留在应用私有目录，卸载或清除应用数据会移除JSON。");info.show();});
+        sheetRow(box,"监控中心连接 · 配对与心跳",CameraUi.YELLOW,()->{d.dismiss();monitorUi.connection();});
+        sheetRow(box,"网页仪表盘 / 设备地图",CameraUi.WHITE,()->{d.dismiss();monitorUi.dashboard();});
         sheetRow(box,"相机权限与应用信息",CameraUi.WHITE,()->{d.dismiss();startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));});
         sheetRow(box,"开源来源与许可",CameraUi.MUTED,()->{d.dismiss();showLicenses();});d.show();
     }
-    private void showLicenses(){Dialog d=ui.sheet("开源许可","wandervision 3.1.0 · AGPL-3.0\nNCNN Android YOLOv8 / Tencent NCNN / OpenCV Mobile");
+    private void showLicenses(){Dialog d=ui.sheet("开源许可","wandervision 3.2.0 · AGPL-3.0\nNCNN Android YOLOv8 / Tencent NCNN / OpenCV Mobile");
         LinearLayout box=ui.sheetBody(d);String[] paths={"THIRD_PARTY_NOTICES.md","LICENSE","ncnn-BSD-3-Clause.txt","opencv-LICENSE.txt","opencv-mobile-LICENSE.txt","Apache-2.0.txt"};
         for(String path:paths)sheetRow(box,path,CameraUi.WHITE,()->{d.dismiss();ENGINE.execute(()->{try(InputStream in=getAssets().open("licenses/"+path);ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] buffer=new byte[8192];int n;while((n=in.read(buffer))!=-1)out.write(buffer,0,n);String text=out.toString("UTF-8");main.post(()->{if(destroyed)return;Dialog license=ui.sheet(path,"随 APK 提供的原始许可文本");TextView t=ui.text(text,11,CameraUi.MUTED);t.setTextIsSelectable(true);ui.sheetBody(license).addView(t);license.show();});}catch(IOException e){main.post(()->toast("无法读取许可文本"));}});});d.show();
     }
@@ -222,7 +227,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         if(capturing){toast("截图正在保存，请稍候");return;}
         try{captures=new JSONArray(preferences.getString("captures","[]"));}catch(JSONException ignored){}
         refreshProfile();
-        Dialog d=ui.sheet("取景记录",captures.length()==0?"尚无记录。点击黄色快门生成带定位与识别信息的巡检照片。":"本地相册 · 最近 "+captures.length()+" 张记录\n查看原图或通过系统分享；本版未连接云端。");LinearLayout box=ui.sheetBody(d);
+        Dialog d=ui.sheet("取景记录",captures.length()==0?"尚无记录。点击黄色快门生成带定位与识别信息的巡检照片。":"本地相册 · 最近 "+captures.length()+" 张记录\n照片默认留在本机；在详情手动上传或导出。");LinearLayout box=ui.sheetBody(d);
         for(int i=0;i<captures.length();i++){JSONObject record=captures.optJSONObject(i);if(record==null)continue;String time=new SimpleDateFormat("MM-dd HH:mm:ss",Locale.getDefault()).format(new Date(record.optLong("time")));
             ImageView thumbnail=ui.recordCard(box,record.optString("mode")+" · 本地截图",time+"  /  "+record.optString("model")+" "+record.optInt("size"),record.optString("mode").equals("取景")?"纯取景 · 未执行检测":"当前帧 "+record.optInt("objects")+" 个目标",()->{d.dismiss();showCapture(record);});
             ENGINE.execute(()->{try(InputStream in=getContentResolver().openInputStream(Uri.parse(record.optString("uri")))){BitmapFactory.Options options=new BitmapFactory.Options();options.inSampleSize=4;Bitmap bitmap=BitmapFactory.decodeStream(in,null,options);main.post(()->{if(!destroyed)thumbnail.setImageBitmap(bitmap);});}catch(Exception ignored){}});
@@ -235,7 +240,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         if(record.has("event_id")){
             JSONObject loc=record.optJSONObject("location");
             String position=loc==null?"旧版记录无定位":loc.isNull("latitude")?"定位："+loc.optString("status"):String.format(Locale.US,"WGS84 %.6f, %.6f\n精度 ±%.0fm · 采样 %.0f 秒前 · %s",loc.optDouble("latitude"),loc.optDouble("longitude"),loc.optDouble("accuracy_m"),loc.optLong("age_ms")/1000f,loc.optString("status"));
-            TextView details=ui.text("记录 "+record.optString("event_id")+"\n"+position+"\n状态：仅本地保存，未上传",11,CameraUi.MUTED);details.setTextIsSelectable(true);details.setPadding(0,ui.dp(12),0,ui.dp(8));box.addView(details);
+            TextView details=ui.text("记录 "+record.optString("event_id")+"\n"+position+"\n原始记录保留；上传状态见下方回执",11,CameraUi.MUTED);details.setTextIsSelectable(true);details.setPadding(0,ui.dp(12),0,ui.dp(8));box.addView(details);
+            monitorUi.uploadControls(box,record,d);
             sheetRow(box,"分享照片 + JSON 记录",CameraUi.YELLOW,()->shareReport(record,uri));
             sheetRow(box,"导出 JSON 文件",CameraUi.WHITE,()->{exportId=record.optString("event_id");Intent save=new Intent(Intent.ACTION_CREATE_DOCUMENT);save.setType("application/json");save.addCategory(Intent.CATEGORY_OPENABLE);save.putExtra(Intent.EXTRA_TITLE,exportId+".json");try{startActivityForResult(save,102);}catch(ActivityNotFoundException e){exportId=null;toast("没有可用的文件保存应用");}});
         }
@@ -246,6 +252,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         Intent share=new Intent(Intent.ACTION_SEND_MULTIPLE);share.setType("*/*");ArrayList<Uri> files=new ArrayList<>();files.add(image);files.add(json);share.putParcelableArrayListExtra(Intent.EXTRA_STREAM,files);
         ClipData clip=new ClipData("巡检记录",new String[]{"image/jpeg","application/json"},new ClipData.Item(image));clip.addItem(new ClipData.Item(json));share.setClipData(clip);share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         try{startActivity(Intent.createChooser(share,"导出巡检照片与结构化记录"));}catch(ActivityNotFoundException e){toast("没有可用的分享应用");}
+    }
+    @Override public void monitorDashboard(){monitorUi.dashboard();}
+    private JSONObject heartbeatSnapshot() throws Exception {
+        JSONObject data=new JSONObject();long now=SystemClock.elapsedRealtimeNanos();LocationTracker.Fix fix=location.freeze();JSONObject position=fix.json(now);
+        String status=position.optString("status");boolean emulator=Build.HARDWARE.contains("ranchu")||Build.HARDWARE.contains("goldfish")||Build.FINGERPRINT.startsWith("generic")||Build.MODEL.contains("sdk_gphone");
+        boolean valid=(status.equals("fresh")||status.equals("approximate"))&&!position.optBoolean("mock",false)&&!emulator;
+        data.put("lat",valid?position.get("latitude"):JSONObject.NULL);data.put("lon",valid?position.get("longitude"):JSONObject.NULL);data.put("_fix_elapsed_ns",valid?position.optLong("fix_elapsed_ns",0):0);
+        if(valid&&!position.isNull("speed_mps"))data.put("speed",position.getDouble("speed_mps")*3.6);
+        data.put("fps",cameraOpen&&stats[4]>frameAtOpen?stats[0]:0);data.put("status","online");
+        BatteryManager battery=(BatteryManager)getSystemService(BATTERY_SERVICE);int percent=battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);if(percent>=0&&percent<=100)data.put("battery",percent);
+        return data;
     }
     private void toast(String text){Toast.makeText(this,text,Toast.LENGTH_SHORT).show();}
     static final class FpsChart extends View{
