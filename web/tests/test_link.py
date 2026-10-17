@@ -57,6 +57,8 @@ class LinkTests(unittest.TestCase):
         d=self.engine.snapshot()['devices'][10]
         self.assertEqual(d['status'],'online');self.assertFalse(d['location_valid'])
         self.assertIn('等待 GPS',d['location'])
+        with self.assertRaises(ValueError):
+            self.engine.ingest('PHONE-01',{'event_id':'no-gps','kind':'pothole','confidence':.9,'observed_at':datetime.now(timezone.utc).isoformat()})
         with self.assertRaises(ValueError):self.engine.heartbeat('PHONE-01',{'lat':29.49,'lon':None})
 
     def test_photo_dedup_and_no_invented_damage_detection(self):
