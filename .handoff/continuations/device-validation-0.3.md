@@ -4,9 +4,9 @@ type: "continuation"
 id: "device-validation-0.3"
 title: "等待小米13反馈：0.3.0黑灰黄界面"
 module_id: "android"
-status: "open"
-next_step: "用户覆盖安装0.3.0后反馈字体、横竖屏布局、安全区、侧栏/模式交互、标注遮挡和截图记录。"
-updated_at: "2026-10-16T23:25:18+08:00"
+status: "done"
+next_step: "后续反馈转至device-validation-3.1；本条因版本替代结束，不代表已通过真机验收。"
+updated_at: "2026-10-17T20:20:25+08:00"
 ---
 
 # 验收基线

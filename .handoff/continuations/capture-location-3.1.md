@@ -4,9 +4,10 @@ type: "continuation"
 id: "capture-location-3.1"
 title: "3.1.0 取景报告与前台定位"
 module_id: "android"
-status: "open"
-next_step: "提交Android相关文件，打v3.1.0标签并检查CI/最终Release APK。"
-updated_at: "2026-10-17T20:18:10+08:00"
+status: "done"
+next_step: "用户安装3.1.0后，在device-validation-3.1记录真实定位、照片方向/非空识别框、导出与持续稳定性反馈。"
+updated_at: "2026-10-17T20:21:44+08:00"
+external_checks: [{"checked_at": "2026-10-17T12:21:24Z", "service": "GitHub Actions / Releases", "status": "passed", "evidence": "v3.1.0源79ad8d30cea7f0e63e1198e59b52ea3eadf35fa6；https://github.com/lvshanyewu/wandervision/actions/runs/39032008856 成功。最终Release APK下载回验40,610,530 bytes，SHA256 dec3f42465ef3705af2e5bf9a3a601568764eaac9a4aba9065bbfe8d35651d28；check_apk/apksigner/zipalign/aapt通过，证书与0.2/0.3相同。"}]
 ---
 
 # 完成实现
