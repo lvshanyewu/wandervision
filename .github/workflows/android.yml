@@ -44,13 +44,13 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: wandervision-3.1.0-arm64
+          name: wandervision-3.2.0-arm64
           path: android/app/build/outputs/apk/debug/app-debug.apk
       - name: Publish test APK
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk wandervision-3.1.0-arm64.apk
-          sha256sum wandervision-3.1.0-arm64.apk > SHA256SUMS.txt
-          gh release create "$GITHUB_REF_NAME" wandervision-3.1.0-arm64.apk SHA256SUMS.txt --title 'wandervision 3.1.0 · GEO CAPTURE' --notes-file docs/releases/3.1.0.md --prerelease
+          cp android/app/build/outputs/apk/debug/app-debug.apk wandervision-3.2.0-arm64.apk
+          sha256sum wandervision-3.2.0-arm64.apk > SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" wandervision-3.2.0-arm64.apk SHA256SUMS.txt --title 'wandervision 3.2.0 · MONITOR LINK' --notes-file docs/releases/3.2.0.md --prerelease

@@ -17,6 +17,7 @@ final class CameraUi {
         void mode(int value); void model(); void size(); void engine(); void shutter();
         void history(); void flip(); void settings(); void dashboard();
         void locationSettings();
+        void monitorDashboard();
     }
     static final int INK=0xff0c0d0f, PANEL=0xff191b1f, LINE=0xff35383e;
     static final int WHITE=0xffedf0f3, MUTED=0xff999fa8;
@@ -74,8 +75,8 @@ final class CameraUi {
         LinearLayout rail=column();rail.setPadding(dp(3),dp(5),dp(3),dp(5));rail.setBackground(shape(0xe8141619,10,0xff383c42));
         rail.addView(railItem("settings","设置",actions::settings));
         rail.addView(railItem("layers","模型",actions::model));
-        rail.addView(railItem("chart","仪表",actions::dashboard));
-        View map=railItem("pin","地图",null);map.setAlpha(.35f);map.setContentDescription("地图，尚未接入");rail.addView(map);
+        rail.addView(railItem("chart","统计",actions::dashboard));
+        View map=railItem("pin","仪表盘",actions::monitorDashboard);map.setContentDescription("打开监控中心仪表盘和设备地图");rail.addView(map);
         FrameLayout.LayoutParams rp=new FrameLayout.LayoutParams(dp(46),-2,Gravity.TOP|Gravity.RIGHT);rp.topMargin=dp(7);rp.rightMargin=dp(5);viewport.addView(rail,rp);
 
         LinearLayout selector=row();selector.setPadding(dp(3),dp(3),dp(3),dp(3));selector.setBackground(shape(0xdc111317,9,0xff45494f));
