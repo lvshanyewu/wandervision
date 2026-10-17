@@ -2,7 +2,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const icon = name => `<svg aria-hidden="true"><use href="icons.svg#${name}"/></svg>`;
+const icon = name => `<svg aria-hidden="true"><use href="icons.svg?v=20261017-v2-4#${name}"/></svg>`;
 const typeNames = {fixed:'固定哨点',mobile:'移动巡检',phone:'真实手机'};
 const typeIcons = {fixed:'camera',mobile:'car',phone:'phone'};
 const statusNames = {online:'在线',offline:'离线',pending:'待接入',paused:'暂停'};

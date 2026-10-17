@@ -244,7 +244,7 @@ class Engine:
             d = next(d for d in self.real if d['id']==device_id)
             if valid:d.update(lat=lat,lon=lon)
             d.update(metrics, location_valid=valid, status=status,
-                     last_seen=self.clock(), location='真实设备 GPS 上报' if valid else '设备在线 · 等待 GPS')
+                     last_seen=self.clock(), location='真实设备 GPS 上报' if valid else '等待 GPS · 无有效定位')
             self.db.execute('INSERT OR REPLACE INTO devices VALUES (?,?)',(device_id,json.dumps(d)))
             self.db.commit()
             return {'ok':True,'device_id':device_id,'received_at':iso(d['last_seen'])}

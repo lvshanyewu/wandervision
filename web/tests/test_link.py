@@ -142,7 +142,9 @@ class PhotoHTTPTests(unittest.TestCase):
                 raw=raw[:2]+comment*3+raw[2:]
                 body={'report':{'schema_version':'1.0','event_id':'http-test-photo','image':{'sha256':hashlib.sha256(raw).hexdigest(),'width':64,'height':48},'location':{},'inference':{'detections':[]}},'image_base64':base64.b64encode(raw).decode()}
                 endpoint='/api/v1/devices/PHONE-01/reports'
-                self.assertEqual(req('POST',endpoint,body)[0],401)
+                # Exercise rejection before sending a large body: HTTP/1.0 closes
+                # unauthorized connections without accepting upload contents.
+                self.assertEqual(req('POST',endpoint,{})[0],401)
                 s,b,_=req('POST',endpoint,body,token);self.assertEqual(s,200);receipt=json.loads(b);rid=receipt['server_event_id']
                 s,b,_=req('POST',endpoint,body,token);self.assertEqual(s,200);self.assertTrue(json.loads(b)['duplicate'])
                 s,b,h=req('GET','/api/v1/reports/'+rid+'/image');self.assertEqual(s,200);self.assertEqual(b,raw);self.assertEqual(h['Content-Type'],'image/jpeg')
