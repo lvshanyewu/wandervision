@@ -2,6 +2,8 @@
 
 轻量级道路智能巡检课程设计。当前交付 **0.3.0 FIELD UI**：黑灰黄原生巡检界面，完全本地运行的 YOLOv8 Nano / Small + NCNN 摄像头检测。
 
+新增 **Web 监控中心 v1 Demo**：[在线测试](https://lvshanyewu.site/wandervision/)。重庆交互地图、10 台连续模拟设备、3 个真实手机接入位、事件/图表/详情与轻量接收 API。运行 `python web/server.py` 后访问 <http://127.0.0.1:8090/>；无需 npm 或第三方 Python 运行依赖。完整启动、接口、测试及部署/回退说明见 [Web 文档](docs/web-dashboard.md)。模拟画面均明确标注，尚未接入 Android 或真实视频。
+
 - **通用物体**：COCO 80 类，可用杯子、瓶子、椅子、手机、键盘等室内物品验证。
 - **车辆**：同一 COCO 模型，仅显示 bicycle、car、motorcycle、bus、truck；不是另行训练的专用车辆模型。
 - 输入尺寸 320 / 480 / 640；CPU 默认，支持 Vulkan GPU；不含 Turnip 自定义驱动。
@@ -45,7 +47,7 @@ GitHub Actions 对 main 和 v* 标签执行构建、lint 和包内容/签名检�
 
 ## 后续路线
 
-当前已完成黑灰黄巡检UI、截图和本地统计，地图/轨迹仅为禁用占位。后续：真机反馈 → 道路病害模型 → GPS与本地事件库 → 轻量API/数据库/事件同步 → Web地图统计 → 课设材料。车牌和遗留物检测可选；GPS、云同步、后端和Web尚未接入，界面不显示虚构的位置或同步成功状态。
+当前已完成 Android 黑灰黄巡检UI、截图和本地统计；Android 地图/轨迹仍为禁用占位。独立 Web Demo 已新增地图、模拟和设备接收 API；下一步：Web 验收 → Android GPS与本地事件队列 → 对接心跳/检测 API → 道路病害模型实机验证 → 可选画面传输与课设材料。车牌和遗留物检测可选；Android GPS、云同步尚未接入，界面不显示虚构的位置或同步成功状态。
 
 ## 来源与许可
 

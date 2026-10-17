@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090b0e"><meta name="description" content="wandervision 重庆道路智能巡检监控中心 · 课程演示">
+  <title>wandervision · 道路巡检监控中心</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css"><link rel="stylesheet" href="style.css?v=20261017-2">
+  <script defer src="vendor/leaflet/leaflet.js"></script><script defer src="app.js?v=20261017-2"></script>
+</head>
+<body data-view="overview">
+<header class="topbar">
+  <a class="brand" href="./" aria-label="wandervision 首页"><img src="logo.svg" alt="" width="34" height="34"><strong>wandervision<span>道路智能巡检</span></strong></a>
+  <nav class="navigation" aria-label="主导航">
+    <button class="nav active" data-view="overview"><svg><use href="icons.svg#grid"/></svg>总览</button>
+    <button class="nav" data-view="map"><svg><use href="icons.svg#map"/></svg>巡检地图</button>
+    <button class="nav" data-view="devices"><svg><use href="icons.svg#camera"/></svg>设备</button>
+    <button class="nav" data-view="events"><svg><use href="icons.svg#activity"/></svg>事件</button>
+    <button class="nav" data-view="analytics"><svg><use href="icons.svg#chart"/></svg>数据分析</button>
+  </nav>
+  <div class="top-actions"><span id="connection" class="connection"><i></i>连接中</span><button id="api-help" class="icon-button" title="真实设备接入说明" aria-label="真实设备接入说明"><svg><use href="icons.svg#link"/></svg></button><span class="avatar">WV</span></div>
+</header>
+<main>
+  <section class="page-heading">
+    <div><div class="eyebrow">CHONGQING / ROAD INTELLIGENCE</div><h1>巡检监控中心<span class="city-tag"><svg><use href="icons.svg#pin"/></svg>重庆主城区</span></h1><p>连接每一段道路，让城市运行尽在掌握。</p></div>
+    <div class="demo-actions"><span class="demo-badge"><i></i> DEMO <small>模拟演示</small></span><select id="scenario" aria-label="模拟场景"><option value="normal">日常巡检</option><option value="busy">验收演示 · 加速事件</option></select><button id="pause" class="icon-button" aria-label="暂停模拟" title="暂停模拟"><svg><use href="icons.svg#pause"/></svg></button><button id="reset" class="icon-button" aria-label="重置模拟" title="重置模拟（保留真实数据）"><svg><use href="icons.svg#reset"/></svg></button></div>
+  </section>
+  <div id="error-banner" class="error-banner" role="status" hidden>服务暂时不可用，正在重新连接。当前展示上次收到的数据。</div>
+  <section class="stats" aria-label="全局概览">
+    <article class="stat"><div class="stat-icon"><svg><use href="icons.svg#camera"/></svg></div><div><span class="stat-label">设备总数</span><strong id="stat-total">—</strong><small>10 台模拟 <b>＋</b> 3 个真实接入位</small></div><span class="stat-index">01</span></article>
+    <article class="stat"><div class="stat-icon green"><svg><use href="icons.svg#wifi"/></svg></div><div><span class="stat-label">在线巡检</span><strong id="stat-online">—<em>/ 13</em></strong><small><i class="dot green-dot"></i><span id="online-note">等待设备状态</span></small></div><span class="mini-spark">▁▃▂▅▄▆▅▇</span></article>
+    <article class="stat"><div class="stat-icon yellow"><svg><use href="icons.svg#alert"/></svg></div><div><span class="stat-label">道路异常 · 本轮</span><strong id="stat-alerts">—</strong><small>坑槽与裂缝 <b>·</b> 模拟 / 真实均标注</small></div><span class="stat-index">03</span></article>
+    <article class="stat"><div class="stat-icon"><svg><use href="icons.svg#road"/></svg></div><div><span class="stat-label">模拟巡检里程</span><strong id="stat-distance">—<em>km</em></strong><small>4 台移动车辆 <b>·</b> 沿道路连续巡检</small></div><span class="stat-index">04</span></article>
+  </section>
+  <section class="workspace">
+    <aside class="panel devices-panel" id="devices-panel">
+      <div class="panel-heading"><h2>巡检设备 <span class="count">13</span></h2><span class="muted tiny">设备中心</span></div>
+      <label class="search-box"><svg><use href="icons.svg#search"/></svg><input id="search" placeholder="搜索设备、位置…" aria-label="搜索设备或位置"><kbd>/</kbd></label>
+      <div class="filters device-filters" aria-label="设备类型"><button class="selected" data-filter="all">全部 <span>13</span></button><button data-filter="fixed">固定</button><button data-filter="mobile">移动</button><button data-filter="phone">真实 <span>3</span></button></div>
+      <div class="device-list" id="device-list"><div class="empty">正在加载设备…</div></div>
+      <div class="device-footer"><i class="dot green-dot"></i><span id="device-footer">模拟引擎准备中</span><span class="live-bars"><b></b><b></b><b></b><b></b></span></div>
+    </aside>
+    <section class="panel map-panel" id="map-panel" aria-label="重庆巡检地图">
+      <div id="map"></div>
+      <div class="map-title"><span class="eyebrow">LIVE PATROL MAP</span><h2>山城，正在被守护。</h2><p>重庆 <span>CHONGQING</span></p></div>
+      <div class="map-toolbar"><button class="map-button" id="zoom-in" aria-label="地图放大">＋</button><button class="map-button" id="zoom-out" aria-label="地图缩小">−</button><button class="map-button" id="recenter" aria-label="回到重庆主城区" title="回到重庆主城区"><svg><use href="icons.svg#target"/></svg></button><button class="map-button" id="layers" aria-label="切换地图底图" title="切换本地矢量 / 在线街道图"><svg><use href="icons.svg#layers"/></svg></button></div>
+      <div class="map-source" id="map-source">本地矢量 · 无需地图密钥</div>
+      <div class="map-legend"><span><i class="legend-icon fixed"></i>固定哨点 <b>6</b></span><span><i class="legend-icon mobile"></i>移动巡检 <b>4</b></span><span><i class="legend-icon phone"></i>真实预留 <b>3</b></span><label><input id="show-events" type="checkbox" checked>事件标记</label></div>
+      <div class="map-pause" id="map-pause" hidden><svg><use href="icons.svg#pause"/></svg>模拟已暂停 · 真实设备仍可上报</div>
+    </section>
+    <aside class="panel events-panel" id="events-panel">
+      <div class="panel-heading"><h2>实时事件</h2><span class="live"><i></i> LIVE</span></div>
+      <div class="filters event-filters" aria-label="事件类型"><button class="selected" data-event-filter="all">全部</button><button data-event-filter="pothole">坑槽</button><button data-event-filter="crack">裂缝</button><button data-event-filter="vehicle">车辆</button><button data-event-filter="device">状态</button></div>
+      <div id="event-list" class="event-list"><div class="empty">等待事件流…</div></div>
+      <div class="events-footer"><span><i class="dot yellow-dot"></i>模拟事件均带 SIM 标识</span><strong id="event-count">— 条</strong></div>
+    </aside>
+    <section class="analytics-panel" id="analytics-panel">
+      <article class="panel distribution-panel"><div class="panel-heading"><h2>事件分布</h2><span class="muted tiny">本轮累计</span></div><div class="distribution-content"><div class="donut" id="donut"><div><strong id="distribution-total">—</strong><small>事件总数</small></div></div><div id="distribution-legend" class="distribution-legend"></div></div></article>
+      <article class="panel trend-panel"><div class="panel-heading"><h2>检测趋势 <small>近 30 分钟</small></h2><span class="chart-key"><i class="dot yellow-dot"></i>模拟 <i class="dot green-dot"></i>真实</span></div><div id="trend-chart" class="trend-chart" aria-label="近30分钟检测事件数量柱状图"></div><div class="chart-caption"><span>每 5 分钟聚合</span><span id="last-update">等待数据</span></div></article>
+    </section>
+    <section class="panel detail-panel" id="detail-panel" aria-live="polite">
+      <div class="panel-heading"><h2>设备详情 <span id="detail-id">CQ-V01</span></h2><span id="detail-status" class="status online">在线</span></div>
+      <div class="preview" id="preview"><canvas id="preview-canvas" width="600" height="240" aria-label="模拟道路示意画面"></canvas><span class="preview-label" id="preview-label">SIM · 合成示意画面</span><span class="preview-corner" id="preview-corner">非真实摄像头</span></div>
+      <div id="detail-location" class="detail-location">渝中半岛线 · WGS84</div>
+      <div class="detail-metrics" id="detail-metrics"></div><button id="detail-history" class="detail-history">查看设备巡检记录 <svg><use href="icons.svg#arrow"/></svg></button>
+    </section>
+  </section>
+  <footer class="page-footer"><span><img src="logo.svg" alt="" width="16" height="16"> wandervision <b>v1.0 DEMO</b><span class="footer-divider">/</span>边缘智能，感知道路。</span><span>模拟数据用于课程演示 · 真实手机接入待完成 <a href="https://github.com/lvshanyewu/wandervision" target="_blank" rel="noreferrer">GitHub ↗</a></span></footer>
+</main>
+<dialog id="api-dialog"><div class="dialog-heading"><div><div class="eyebrow">DEVICE CONNECTION</div><h2>让下一台手机，接入城市。</h2></div><button id="close-dialog" class="icon-button" aria-label="关闭接入说明"><svg><use href="icons.svg#close"/></svg></button></div><p>3 个真实设备位已预留。当前没有连接 Android，预览区不会显示虚构摄像头画面。</p><div class="api-note"><svg><use href="icons.svg#phone"/></svg><div><strong>PHONE-01 / PHONE-02 / PHONE-03</strong><small id="api-config">读取服务端接入状态…</small></div></div><h3>1. 上报心跳与 GPS</h3><pre>POST api/v1/devices/PHONE-01/heartbeat
+Authorization: Bearer &lt;设备独立令牌&gt;
+Content-Type: application/json
+
+{"lat":29.563,"lon":106.578,"battery":86,
+ "fps":24,"speed":0,"status":"online"}</pre><h3>2. 上报检测事件</h3><pre>POST api/v1/devices/PHONE-01/events
+Authorization: Bearer &lt;设备独立令牌&gt;
+
+{"event_id":"inspection-0001","kind":"pothole",
+ "confidence":0.89,"observed_at":"ISO-8601 UTC"}</pre><p class="muted">设备心跳每 10 秒一次，30 秒未收到自动离线。事件支持幂等去重与持久化；GPS 采用 WGS84。视频传输留待下一阶段。详细契约见仓库 docs/web-dashboard.md。</p></dialog>
+<div id="toast" class="toast" role="status" hidden></div>
+</body></html>
