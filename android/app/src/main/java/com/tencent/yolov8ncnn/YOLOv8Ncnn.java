@@ -23,6 +23,7 @@ public class YOLOv8Ncnn
     public native void configureView(int rotation, int width, int height);
     public native void setDetectionEnabled(boolean enabled);
     public native float[] getStats();
+    public native FrameCapture captureFrame();
     public native boolean openCamera(int facing);
     public native boolean closeCamera();
     public native boolean setOutputWindow(Surface surface);
