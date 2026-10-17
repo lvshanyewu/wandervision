@@ -16,7 +16,7 @@ function shortTime(seconds) {return localTime(seconds,{hour:'2-digit',minute:'2-
 function sourceTag(source) {return `<span class="source-tag ${source==='real'?'real':''}">${source==='real'?'REAL':'SIM'}</span>`;}
 function statusTag(status) {return `<span class="status ${esc(status)}">${esc(statusNames[status])}</span>`;}
 
-const map = L.map('map',{zoomControl:false,attributionControl:true,preferCanvas:true,minZoom:13,maxZoom:18,maxBounds:[[29.45,106.52],[29.55,106.63]],maxBoundsViscosity:.7}).setView([29.4903657,106.567229],15);
+const map = L.map('map',{zoomControl:false,attributionControl:true,preferCanvas:true,minZoom:12,maxZoom:18,maxBounds:[[29.35,106.2],[29.9,107.05]],maxBoundsViscosity:.7}).setView([29.4903657,106.567229],15);
 map.attributionControl.setPrefix('');
 map.attributionControl.addAttribution('© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · ODbL');
 L.control.scale({position:'bottomleft',imperial:false,maxWidth:75}).addTo(map);
@@ -126,6 +126,7 @@ function renderDeviceList(){
   $('#device-list').innerHTML=devices.length?devices.map(d=>`<button class="device-row ${d.id===state.selected?'active':''}" data-device="${esc(d.id)}" aria-pressed="${d.id===state.selected}"><span class="device-thumb ${esc(d.type)}">${icon(typeIcons[d.type])}</span><span class="device-copy"><span class="device-line"><strong>${esc(d.id)}</strong>${statusTag(d.status)}</span><span class="device-location">${esc(d.location)}</span><span class="device-tags">${sourceTag(d.source)}<span class="type-tag">${typeNames[d.type]}</span>${d.type==='mobile'?`<span>· ${Math.round(d.battery)}%</span>`:''}</span></span></button>`).join(''):'<div class="empty">没有匹配的设备<br>试试其他名称或位置</div>';
 }
 function selectDevice(id,pan=true){
+  state.focusDone=true;
   state.selected=id;renderDeviceList();renderMarkers();renderDetail();
   const d=state.snapshot?.devices.find(d=>d.id===id);
   if(pan&&d)map.panTo([d.lat,d.lon],{animate:!reducedMotion});
@@ -195,6 +196,9 @@ function render(){
   $('#map-pause').hidden=s.simulation.running;
   $('#device-footer').textContent=s.simulation.running?'模拟引擎运行中 · 3 秒刷新':'模拟已暂停 · 真实接口保持接收';
   renderDeviceList();renderMarkers();renderEvents();renderCharts();renderDetail();
+  const requested=new URLSearchParams(location.search).get('device');
+  const target=s.devices.find(d=>d.id===requested);
+  if(!state.focusDone&&target?.location_valid){state.focusDone=true;map.panTo([target.lat,target.lon],{animate:!reducedMotion});}
   window.WVUpgrade?.render();
 }
 async function refresh(){
