@@ -4,9 +4,9 @@ type: "continuation"
 id: "web-dashboard-v2"
 title: "交大南岸校区 Demo 完善与 App 联动"
 module_id: "web-dashboard"
-status: "open"
-next_step: "完成App3.2 APK发布和检查汇总，合并最新main至Web分支，提交最终交付记录；用户安装真机验证GPS/摄像头与实际识别。"
-updated_at: "2026-10-17T21:41:57+08:00"
+status: "done"
+next_step: "用户在线验收校园Web及安装Android3.2真机测试配对/定位/照片上传；后续按反馈完善病害模型和可靠离线队列。"
+updated_at: "2026-10-17T21:55:05+08:00"
 ---
 
 # 已实现
@@ -20,7 +20,14 @@ updated_at: "2026-10-17T21:41:57+08:00"
 App3.2模拟器实际界面已配对PHONE-01、前台无GPS心跳、拍照上传；报告ef0ce2a9-c69d-407b-b0b0-ff7f59efc63c为TEST，480x751约33.8KiB、0检测。公网原图HTTP200、SHA256与JSON一致且逐字节匹配App本地JPEG，重复上传duplicate=true同server_event_id。生产保留该照片演示；不代表实机GPS/摄像头/识别/FPS验证。
 
 # 发布与回退
-公网https://lvshanyewu.site/wandervision/。最终release=/opt/wandervision/releases/20261017T134020Z；rollback：python web/deploy/deploy.py --rollback /opt/wandervision/backups/20261017T134020Z。独立systemd active，启动MemoryCurrent13922304 bytes；只重启本服务，Nginx路径body6m，备份并nginx-t/reload，其他应用保持运行。SQLite和手机配对/照片跨发布保留。
+公网https://lvshanyewu.site/wandervision/。最终release=/opt/wandervision/releases/20261017T134647Z；rollback：python web/deploy/deploy.py --rollback /opt/wandervision/backups/20261017T134647Z。独立systemd active，启动MemoryCurrent14471168 bytes；只重启本服务，Nginx路径body6m，备份并nginx-t/reload，其他应用保持运行。SQLite和手机配对/照片跨发布保留。
 
 # 协作与代码
 codex/web-dashboard-v1分支PR1，功能与修复已推送到6c8b2a3。共享主目录Web源码同步，Android交由用户授权的现有App对话实现/构建/发布。本次沟通使用Codex线程工具，未派生额外代理。App APK发布结果待汇入最终记录。
+
+
+最终网页下载按钮明确指向 v3.2.0 Release，避免 releases/latest 跳到不含联动的旧版。
+
+
+# 最终交付
+Android源码31cb230已推送main，Web分支已合并并推送f33ede9；PR1保留完整Web变更。App v3.2.0已发布：https://github.com/lvshanyewu/wandervision/releases/tag/v3.2.0 ，CI run39038186698全部成功。App对话下载回验ARM64 APK40,627,999 bytes，SHA256 895ad88178caacd5d3f295a042838697e75568ed76a11978f515c5fd4a899f28，与SHA256SUMS一致；check_apk、apksigner固定证书及16KiB zipalign通过。18项Android契约检查与32项Web测试通过。真实用户手机验收尚待反馈。
