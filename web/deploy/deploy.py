@@ -39,7 +39,7 @@ def patch_config(source,gateway):
         proxy_http_version 1.1;
         proxy_set_header Connection "";
         proxy_read_timeout 20s;
-        client_max_body_size 16k;
+        client_max_body_size 6m;
         gzip on;
         gzip_min_length 1024;
         gzip_types application/json application/geo+json application/javascript text/javascript text/css image/svg+xml;
@@ -174,9 +174,10 @@ def run(args):
         write(folder+'/nginx.conf',config,0o600)
         if old_unit:write(folder+'/wandervision.service',old_unit,0o600)
         write(folder+'/manifest.json',json.dumps(manifest,indent=2).encode(),0o600)
+        for parent in sorted({str(Path(release+'/'+name).parent).replace('\\','/') for name in payload}):
+            command('mkdir -p '+shlex.quote(parent))
         for name,data in payload.items():
             target=release+'/'+name
-            command('mkdir -p '+shlex.quote(str(Path(target).parent).replace('\\','/')))
             write(target,data)
         command('python3 -m py_compile '+release+'/server.py')
         write(release+'/manifest.json',json.dumps(manifest['files']).encode())

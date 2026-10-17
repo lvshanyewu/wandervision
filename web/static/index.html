@@ -5,8 +5,8 @@
   <meta name="theme-color" content="#090b0e"><meta name="description" content="wandervision 重庆道路智能巡检监控中心 · 课程演示">
   <title>wandervision · 道路巡检监控中心</title>
   <link rel="icon" type="image/svg+xml" href="logo.svg">
-  <link rel="stylesheet" href="vendor/leaflet/leaflet.css"><link rel="stylesheet" href="style.css?v=20261017-3">
-  <script defer src="vendor/leaflet/leaflet.js"></script><script defer src="app.js?v=20261017-3"></script>
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css"><link rel="stylesheet" href="style.css?v=20261017-v2-2"><link rel="stylesheet" href="upgrade.css?v=20261017-v2-2">
+  <script defer src="vendor/leaflet/leaflet.js"></script><script defer src="scene.js?v=20261017-v2-2"></script><script defer src="app.js?v=20261017-v2-2"></script><script defer src="upgrade.js?v=20261017-v2-2"></script>
 </head>
 <body data-view="overview">
 <header class="topbar">
@@ -17,13 +17,14 @@
     <button class="nav" data-view="devices"><svg><use href="icons.svg#camera"/></svg>设备</button>
     <button class="nav" data-view="events"><svg><use href="icons.svg#activity"/></svg>事件</button>
     <button class="nav" data-view="analytics"><svg><use href="icons.svg#chart"/></svg>数据分析</button>
+    <button class="nav" data-view="reports"><svg><use href="icons.svg#photo"/></svg>采集档案</button>
   </nav>
-  <div class="top-actions"><span id="connection" class="connection"><i></i>连接中</span><button id="api-help" class="icon-button" title="真实设备接入说明" aria-label="真实设备接入说明"><svg><use href="icons.svg#link"/></svg></button><span class="avatar">WV</span></div>
+  <div class="top-actions"><span id="connection" class="connection"><i></i>连接中</span><button id="settings" class="icon-button" title="设置与演示中心" aria-label="设置与演示中心"><svg><use href="icons.svg#settings"/></svg></button><span class="avatar">WV</span></div>
 </header>
 <main>
   <section class="page-heading">
-    <div><div class="eyebrow">CHONGQING / ROAD INTELLIGENCE</div><h1>巡检监控中心<span class="city-tag"><svg><use href="icons.svg#pin"/></svg>重庆主城区</span></h1><p>连接每一段道路，让城市运行尽在掌握。</p></div>
-    <div class="demo-actions"><span class="demo-badge"><i></i> DEMO <small>模拟演示</small></span><select id="scenario" aria-label="模拟场景"><option value="normal">日常巡检</option><option value="busy">验收演示 · 加速事件</option></select><button id="pause" class="icon-button" aria-label="暂停模拟" title="暂停模拟"><svg><use href="icons.svg#pause"/></svg></button><button id="reset" class="icon-button" aria-label="重置模拟" title="重置模拟（保留真实数据）"><svg><use href="icons.svg#reset"/></svg></button></div>
+    <div><div class="eyebrow">CQJTU / CAMPUS ROAD INTELLIGENCE</div><h1>巡检监控中心<span class="city-tag"><svg><use href="icons.svg#pin"/></svg>重庆交通大学 · 南岸校区</span></h1><p>从学府大道出发，感知校园与城市道路。</p></div>
+    <div class="demo-actions"><span class="demo-badge"><i></i> DEMO <small>模拟演示</small></span><select id="scenario" aria-label="模拟场景"><option value="normal">校园日常巡检</option><option value="busy">高峰车流 · 加速事件</option><option value="roadwork">病害发现演示</option><option value="offline">断线恢复演练</option><option value="night">夜间巡检演示</option></select><button id="pause" class="icon-button" aria-label="暂停模拟" title="暂停模拟"><svg><use href="icons.svg#pause"/></svg></button><button id="reset" class="icon-button" aria-label="重置模拟" title="重置模拟（保留真实数据）"><svg><use href="icons.svg#reset"/></svg></button></div>
   </section>
   <div id="error-banner" class="error-banner" role="status" hidden>服务暂时不可用，正在重新连接。当前展示上次收到的数据。</div>
   <section class="stats" aria-label="全局概览">
@@ -42,7 +43,7 @@
     </aside>
     <section class="panel map-panel" id="map-panel" aria-label="重庆巡检地图">
       <div id="map"></div>
-      <div class="map-title"><span class="eyebrow">LIVE PATROL MAP</span><h2>山城，正在被守护。</h2><p>重庆 <span>CHONGQING</span></p></div>
+      <div class="map-title"><span class="eyebrow">CQJTU · NAN'AN CAMPUS</span><h2>从交大，看见每一段路。</h2><p>学府大道 66 号 <span>CHONGQING</span></p></div>
       <div class="map-toolbar"><button class="map-button" id="zoom-in" aria-label="地图放大">＋</button><button class="map-button" id="zoom-out" aria-label="地图缩小">−</button><button class="map-button" id="recenter" aria-label="回到重庆主城区" title="回到重庆主城区"><svg><use href="icons.svg#target"/></svg></button><button class="map-button" id="layers" aria-label="切换地图底图" title="切换本地矢量 / 在线街道图"><svg><use href="icons.svg#layers"/></svg></button></div>
       <div class="map-source" id="map-source">本地矢量 · 无需地图密钥</div>
       <div class="map-legend"><span><i class="legend-icon fixed"></i>固定哨点 <b>6</b></span><span><i class="legend-icon mobile"></i>移动巡检 <b>4</b></span><span><i class="legend-icon phone"></i>真实预留 <b>3</b></span><label><input id="show-events" type="checkbox" checked>事件标记</label></div>
@@ -50,7 +51,7 @@
     </section>
     <aside class="panel events-panel" id="events-panel">
       <div class="panel-heading"><h2>实时事件</h2><span class="live"><i></i> LIVE</span></div>
-      <div class="filters event-filters" aria-label="事件类型"><button class="selected" data-event-filter="all">全部</button><button data-event-filter="pothole">坑槽</button><button data-event-filter="crack">裂缝</button><button data-event-filter="vehicle">车辆</button><button data-event-filter="device">状态</button></div>
+      <div class="filters event-filters" aria-label="事件类型"><button class="selected" data-event-filter="all">全部</button><button data-event-filter="pothole">坑槽</button><button data-event-filter="crack">裂缝</button><button data-event-filter="vehicle">车辆</button><button data-event-filter="device">状态</button><button data-event-filter="report">照片</button></div>
       <div id="event-list" class="event-list"><div class="empty">等待事件流…</div></div>
       <div class="events-footer"><span><i class="dot yellow-dot"></i>模拟事件均带 SIM 标识</span><strong id="event-count">— 条</strong></div>
     </aside>
@@ -60,22 +61,25 @@
     </section>
     <section class="panel detail-panel" id="detail-panel" aria-live="polite">
       <div class="panel-heading"><h2>设备详情 <span id="detail-id">CQ-V01</span></h2><span id="detail-status" class="status online">在线</span></div>
-      <div class="preview" id="preview"><canvas id="preview-canvas" width="600" height="240" aria-label="模拟道路示意画面"></canvas><span class="preview-label" id="preview-label">SIM · 合成示意画面</span><span class="preview-corner" id="preview-corner">非真实摄像头</span></div>
-      <div id="detail-location" class="detail-location">渝中半岛线 · WGS84</div>
+      <div class="preview" id="preview" role="button" tabindex="0" aria-label="展开设备采集画面"><canvas id="preview-canvas" width="600" height="240" aria-label="模拟道路示意画面"></canvas><img id="real-preview" alt="设备上传的最新巡检照片" hidden><span class="preview-label" id="preview-label">SIM · 合成示意画面</span><span class="preview-corner" id="preview-corner">点击展开采集场景 ↗</span></div>
+      <div id="detail-location" class="detail-location">交大南岸校区 · WGS84</div>
       <div class="detail-metrics" id="detail-metrics"></div><button id="detail-history" class="detail-history">查看设备巡检记录 <svg><use href="icons.svg#arrow"/></svg></button>
     </section>
   </section>
-  <footer class="page-footer"><span><img src="logo.svg" alt="" width="16" height="16"> wandervision <b>v1.0 DEMO</b><span class="footer-divider">/</span>边缘智能，感知道路。</span><span>模拟数据用于课程演示 · 真实手机接入待完成 <a href="https://github.com/lvshanyewu/wandervision" target="_blank" rel="noreferrer">GitHub ↗</a></span></footer>
+  <section class="panel reports-panel" id="reports-panel"><div class="panel-heading"><div><div class="eyebrow">FIELD COLLECTION / REAL DEVICE UPLOADS</div><h2>巡检采集档案 <span id="report-total" class="count">0</span></h2></div><button id="connect-phone" class="text-button">连接手机 ↗</button></div><p class="reports-intro">这里展示 App 上传的原始照片与结构化记录；模拟器/测试定位标为 TEST，程序合成场景不会混入档案。</p><div id="report-grid" class="report-grid"><div class="empty">尚未收到手机采集报告。打开设置生成配对码，在 App 连接后拍照并一键上传。</div></div></section>
+  <footer class="page-footer"><span><img src="logo.svg" alt="" width="16" height="16"> wandervision <b>v2.0 CAMPUS DEMO</b><span class="footer-divider">/</span>边缘智能，感知道路。</span><span>SIM 为合成循环 · REAL 为设备上传 <a href="https://github.com/lvshanyewu/wandervision" target="_blank" rel="noreferrer">GitHub ↗</a></span></footer>
 </main>
-<dialog id="api-dialog"><div class="dialog-heading"><div><div class="eyebrow">DEVICE CONNECTION</div><h2>让下一台手机，接入城市。</h2></div><button id="close-dialog" class="icon-button" aria-label="关闭接入说明"><svg><use href="icons.svg#close"/></svg></button></div><p>3 个真实设备位已预留。当前没有连接 Android，预览区不会显示虚构摄像头画面。</p><div class="api-note"><svg><use href="icons.svg#phone"/></svg><div><strong>PHONE-01 / PHONE-02 / PHONE-03</strong><small id="api-config">读取服务端接入状态…</small></div></div><h3>1. 上报心跳与 GPS</h3><pre>POST api/v1/devices/PHONE-01/heartbeat
-Authorization: Bearer &lt;设备独立令牌&gt;
-Content-Type: application/json
+<dialog id="settings-dialog" class="settings-dialog"><div class="dialog-heading"><div><div class="eyebrow">MAKE IT YOUR DEMO</div><h2>设置与演示中心</h2></div><button class="icon-button" data-close="settings-dialog" aria-label="关闭设置"><svg><use href="icons.svg#close"/></svg></button></div><div class="settings-layout"><nav class="settings-nav" aria-label="设置分类"><button class="active" data-setting="scenes">演示场景</button><button data-setting="connect">手机连接</button><button data-setting="storage">数据与存储</button><button data-setting="display">显示偏好</button></nav><div class="settings-content"><section data-setting-page="scenes"><h3>下一场演示，由你选择。</h3><p>预设同时调整模拟引擎和合成画面。当前所有访问者共享一个模拟场景。</p><div id="scenario-grid" class="scenario-grid"></div><button id="restart-demo" class="text-button">重置模拟并重新开始 ↻</button></section><section data-setting-page="connect" hidden><h3>把手机，变成巡检设备。</h3><p>在 App 的监控中心连接页输入配对码，即可上报前台心跳并手动上传巡检照片。</p><div class="pair-form"><label>手机接入位<select id="pair-device"><option>PHONE-01</option><option>PHONE-02</option><option>PHONE-03</option></select></label><button id="generate-pair" class="primary-button">生成配对码</button></div><div id="pair-result" class="pair-result" hidden><span>在 App 中输入 · 5 分钟有效 · 一次使用</span><strong id="pair-code">—</strong><small id="pair-expires"></small></div><div class="connection-steps"><span><b>01</b> 打开 App 输入配对码</span><span><b>02</b> 拍摄巡检照片</span><span><b>03</b> 在照片详情点“一键上传”</span></div><p class="consent-note">这是公开课程 Demo：上传的照片和位置将显示在网页中，也可以被一键清空。重新配对同一接入位会替换其旧令牌。</p><a id="apk-link" class="text-button" href="https://github.com/lvshanyewu/wandervision/releases/latest" target="_blank" rel="noreferrer">获取 Android 测试版 ↗</a><button id="api-help" class="text-button">查看接口说明</button></section><section data-setting-page="storage" hidden><h3>轻装运行，随时重新开始。</h3><p>自动保留最近 7 天的数据，最多 50 张照片、96 MiB 图片及 5000 条设备事件。模拟事件只驻留内存。</p><div id="storage-stats" class="storage-stats"></div><div class="storage-meter"><i id="storage-fill"></i></div><div class="storage-actions"><button id="compact-data" class="text-button">执行配额清理与压缩</button><button id="clear-data" class="danger-button">一键清空演示数据库</button></div><label class="keep-pairing"><input id="keep-pairing" type="checkbox" checked>清理时保留手机配对，方便继续演示</label><p class="consent-note">立即删除本 Demo 的全部上传照片、记录和设备状态，并回收数据库空间。不会删除手机本地照片，也不会影响服务器上的其他项目。</p><div id="storage-result" role="status"></div></section><section data-setting-page="display" hidden><h3>适合这台设备的显示方式。</h3><label class="setting-row">地图底图<select id="map-preference"><option value="0">本地校园矢量 · 无网络依赖</option><option value="1">在线街道 · 深色</option><option value="2">在线街道 · 原色</option></select></label><label class="setting-row">合成预览性能<select id="quality"><option value="balanced">流畅 · 20 FPS</option><option value="eco">节能 · 10 FPS</option></select></label><label class="setting-row">跟随选中巡检车<input id="follow-device" type="checkbox"></label><label class="setting-row">显示事件地图标记<input id="events-preference" type="checkbox" checked></label><p>偏好仅保存在当前浏览器。循环画面采用透视 Canvas，不下载视频，不执行云端 AI 推理。</p></section></div></div></dialog>
+<dialog id="scene-dialog" class="scene-dialog"><div class="dialog-heading"><div><div class="eyebrow">SIMULATED FIELD VIEW</div><h2 id="scene-title">巡检采集场景</h2></div><button class="icon-button" data-close="scene-dialog" aria-label="关闭采集画面"><svg><use href="icons.svg#close"/></svg></button></div><div class="scene-stage"><canvas id="scene-canvas" width="1080" height="600" aria-label="透视合成巡检循环场景"></canvas><div class="scene-overlay"><span id="scene-device">CQ-V01 · SIM</span><span id="scene-state">循环演示 · 非真实摄像头</span></div></div><div class="scene-controls"><label>场景<select id="scene-mode"><option value="auto">随设备类型</option><option value="patrol">移动巡检 · 弯道与病害</option><option value="intersection">固定路口 · 交叉车流</option><option value="campus">校园道路 · 慢速巡检</option></select></label><label>环境<select id="scene-weather"><option value="day">日间</option><option value="night">夜间</option><option value="rain">雨天</option></select></label><button id="scene-pause" class="text-button">暂停画面</button></div><p class="scene-disclaimer">车辆、识别框与路面病害均为程序合成的循环示意；画面不写入采集档案，也不代表真实 AI 推理结果。</p></dialog>
+<dialog id="report-dialog" class="report-dialog"><div class="dialog-heading"><div><div class="eyebrow">REAL DEVICE / INSPECTION REPORT</div><h2 id="report-title">巡检照片</h2></div><button class="icon-button" data-close="report-dialog" aria-label="关闭巡检报告"><svg><use href="icons.svg#close"/></svg></button></div><img id="report-image" alt="原始巡检报告照片"><p class="muted">原始照片和 JSON 保留拍摄时的数据（可能含“本地保存”），接收状态以服务器回执为准。</p><div id="report-info" class="report-info"></div><details><summary>查看原始结构化 JSON</summary><pre id="report-json"></pre></details></dialog>
+<dialog id="api-dialog"><div class="dialog-heading"><div><div class="eyebrow">DEVICE CONNECTION / V2</div><h2>让下一台手机，接入校园。</h2></div><button id="close-dialog" class="icon-button" aria-label="关闭接入说明"><svg><use href="icons.svg#close"/></svg></button></div><p>在设置 → 手机连接生成6位配对码，在 App 3.2.0 中配对。拍照后在照片详情点击一键上传，网页采集档案会显示原始照片和结构化记录。</p><div class="api-note"><svg><use href="icons.svg#phone"/></svg><div><strong>PHONE-01 / PHONE-02 / PHONE-03</strong><small id="api-config">读取接入状态…</small></div></div><h3>配对与前台心跳</h3><pre>POST api/v1/pair
+{"code":"六位配对码"}
 
-{"lat":29.563,"lon":106.578,"battery":86,
- "fps":24,"speed":0,"status":"online"}</pre><h3>2. 上报检测事件</h3><pre>POST api/v1/devices/PHONE-01/events
+POST api/v1/devices/PHONE-01/heartbeat
 Authorization: Bearer &lt;设备独立令牌&gt;
-
-{"event_id":"inspection-0001","kind":"pothole",
- "confidence":0.89,"observed_at":"ISO-8601 UTC"}</pre><p class="muted">设备心跳每 10 秒一次，30 秒未收到自动离线。事件支持幂等去重与持久化；GPS 采用 WGS84。视频传输留待下一阶段。详细契约见仓库 docs/web-dashboard.md。</p></dialog>
+{"lat":29.4903,"lon":106.5672,"status":"online"}</pre><h3>上传原图与报告</h3><pre>POST api/v1/devices/PHONE-01/reports
+Authorization: Bearer &lt;设备独立令牌&gt;
+{"report":&lt;schema1.0原始JSON&gt;,
+ "image_base64":"原始JPEG Base64"}</pre><p class="muted">前台心跳建议每10秒，超过30秒未收到自动离线。无GPS也可连接和上传。原图最大4MiB，SHA-256核验，event_id幂等。照片为最近一次采集，不是实时视频。完整契约见仓库 docs/web-dashboard.md。</p></dialog>
 <div id="toast" class="toast" role="status" hidden></div>
 </body></html>

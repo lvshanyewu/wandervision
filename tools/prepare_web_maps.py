@@ -33,18 +33,21 @@ def main():
         (vendor / name).write_bytes(content)
     (vendor / 'LICENSE').write_bytes(fetch('https://raw.githubusercontent.com/Leaflet/Leaflet/v1.9.4/LICENSE'))
     query = '''[out:json][timeout:80];(
-      way[highway~"^(motorway|trunk|primary|secondary|tertiary|residential|motorway_link|trunk_link|primary_link|secondary_link)$"](29.49,106.43,29.66,106.66);
-      way[waterway=river](29.49,106.43,29.66,106.66);
-      way[natural=water][water=river](29.49,106.43,29.66,106.66);
-      relation[natural=water][water=river](29.49,106.43,29.66,106.66);
+      way[highway~"^(motorway|trunk|primary|secondary|tertiary|residential|service|unclassified|living_street|footway|path|pedestrian|motorway_link|trunk_link|primary_link|secondary_link)$"](29.465,106.535,29.535,106.615);
+      way[waterway=river](29.465,106.535,29.535,106.615);
+      way[natural=water][water=river](29.465,106.535,29.535,106.615);
+      relation[natural=water][water=river](29.465,106.535,29.535,106.615);
+      way[building](29.481,106.557,29.504,106.579);
+      way[amenity=university](29.481,106.557,29.504,106.579);
+      way[leisure=park](29.465,106.535,29.535,106.615);
     );out geom;'''
     raw = None
-    for endpoint in ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']:
+    for endpoint in ['https://overpass.private.coffee/api/interpreter','https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']:
         try:
             raw = json.loads(fetch(endpoint + '?' + urllib.parse.urlencode({'data': query})))
             break
         except Exception as exc:
-            print('Overpass retry:', type(exc).__name__)
+            print('Overpass retry:', type(exc).__name__, getattr(exc,'code',''))
     if raw is None:
         raise RuntimeError('Could not refresh OSM data; existing snapshots are untouched.')
     features = []
@@ -52,10 +55,10 @@ def main():
         return [[round(p['lon'], 6), round(p['lat'], 6)] for p in geom]
     for elem in raw['elements']:
         tags = elem.get('tags', {})
-        props = {k: tags[k] for k in ['name', 'highway', 'waterway', 'water'] if k in tags}
+        props = {k: tags[k] for k in ['name', 'highway', 'waterway', 'water','building','amenity','leisure'] if k in tags}
         if elem['type'] == 'way' and elem.get('geometry'):
             coords = coordinates(elem['geometry'])
-            polygon = tags.get('natural') == 'water' and coords[0] == coords[-1]
+            polygon = any(k in tags for k in ['natural','building','amenity','leisure']) and coords[0] == coords[-1]
             features.append({'type': 'Feature', 'properties': props,
                              'geometry': {'type': 'Polygon' if polygon else 'LineString',
                                           'coordinates': [coords] if polygon else coords}})
@@ -76,9 +79,9 @@ def main():
     write_json('chongqing.geojson', {'type': 'FeatureCollection', 'features': features})
     print('OSM features:', len(features))
     waypoints = [
-        [[106.5493,29.5628],[106.5629,29.5586],[106.5750,29.5603],[106.5820,29.5630],[106.5788,29.5686]],
-        [[106.5518,29.5821],[106.5648,29.5857],[106.5745,29.5884],[106.5899,29.5816],[106.5944,29.5780]],
-        [[106.5611,29.5413],[106.5760,29.5464],[106.5857,29.5520],[106.5930,29.5576],[106.5990,29.5653]],
+        [[106.5691,29.4914],[106.5688,29.4960],[106.5702,29.5010],[106.5708,29.5041]],
+        [[106.5691,29.4914],[106.5688,29.4860],[106.5680,29.4810],[106.5659,29.4777]],
+        [[106.5690,29.4850],[106.5740,29.4840],[106.5790,29.4820],[106.5820,29.4865]],
     ]
     routes = []
     for i, points in enumerate(waypoints):
@@ -86,7 +89,7 @@ def main():
         result = json.loads(fetch('https://router.project-osrm.org/route/v1/driving/' + locations + '?overview=full&geometries=geojson'))
         assert result['code'] == 'Ok'
         route = result['routes'][0]
-        routes.append({'id': f'route-{i+1}', 'name': ['渝中半岛线','江北滨江线','南滨路巡检线'][i],
+        routes.append({'id': f'route-{i+1}', 'name': ['学府大道北线','交大南侧巡检线','汇龙路巡检线'][i],
                        'coordinates': route['geometry']['coordinates'], 'distance_m': route['distance'],
                        'source': 'OSRM / OpenStreetMap', 'playback': 'ping-pong'})
     write_json('routes.json', routes)
