@@ -77,6 +77,8 @@ class LinkTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.engine.receive_report('PHONE-01',body)
         body=self.body();body['report']['image']['width']=1000
         with self.assertRaises(ValueError):self.engine.receive_report('PHONE-01',body)
+        body=self.body();body['report']['image']['width_px']=1000
+        with self.assertRaises(ValueError):self.engine.receive_report('PHONE-01',body)
         body=self.body();body['image_base64']='not a JPEG'
         with self.assertRaises(ValueError):self.engine.receive_report('PHONE-01',body)
         self.assertEqual(self.engine.storage()['reports'],0)

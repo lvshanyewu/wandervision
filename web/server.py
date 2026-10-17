@@ -267,8 +267,8 @@ class Engine:
             d = next(d for d in self.real if d['id']==device_id)
             if d['last_seen'] is None or self.clock()-d['last_seen']>30 or d['status']!='online':
                 raise ValueError('Send an online heartbeat before reporting detections (30s TTL)')
-            lat = number(body.get('lat',d['lat']),-90,90,'lat')
-            lon = number(body.get('lon',d['lon']),-180,180,'lon')
+            lat = number(body.get('lat',d['lat'] if d['location_valid'] else None),-90,90,'lat')
+            lon = number(body.get('lon',d['lon'] if d['location_valid'] else None),-180,180,'lon')
             event = {'id':f'real-{device_id}-{event_id}', 'device_id':device_id, 'source':'real',
                      'kind':kind,'title':KINDS[kind][0],'severity':KINDS[kind][1],
                      'timestamp':observed,'confidence':confidence,'lat':lat,'lon':lon,
@@ -393,7 +393,10 @@ class Engine:
         if not 1<=len(image)<=MAX_IMAGE:raise ValueError('JPEG must be at most 4MiB')
         if hashlib.sha256(image).hexdigest()!=expected.lower():raise ValueError('JPEG SHA256 does not match report')
         width,height=jpeg_size(image)
-        if image_info.get('width',width)!=width or image_info.get('height',height)!=height:raise ValueError('JPEG dimensions do not match report')
+        if any(key in image_info and image_info[key]!=value for key,value in [('width',width),('width_px',width),('height',height),('height_px',height)]):
+            raise ValueError('JPEG dimensions do not match report')
+        if 'bytes' in image_info and image_info['bytes']!=len(image):raise ValueError('JPEG byte size does not match report')
+        if image_info.get('mime_type','image/jpeg')!='image/jpeg':raise ValueError('Only image/jpeg reports are supported')
         # Report metadata is retained, never treated as executable markup or a URL.
         location=report.get('location') or {}
         if not isinstance(location,dict) or not isinstance(report.get('inference',{}),dict):raise ValueError('Invalid location/inference metadata')
