@@ -6,7 +6,7 @@ title: "3.1.0 取景报告与前台定位"
 module_id: "android"
 status: "done"
 next_step: "用户安装3.1.0后，在device-validation-3.1记录真实定位、照片方向/非空识别框、导出与持续稳定性反馈。"
-updated_at: "2026-10-17T20:21:44+08:00"
+updated_at: "2026-10-17T20:22:16+08:00"
 external_checks: [{"checked_at": "2026-10-17T12:21:24Z", "service": "GitHub Actions / Releases", "status": "passed", "evidence": "v3.1.0源79ad8d30cea7f0e63e1198e59b52ea3eadf35fa6；https://github.com/lvshanyewu/wandervision/actions/runs/39032008856 成功。最终Release APK下载回验40,610,530 bytes，SHA256 dec3f42465ef3705af2e5bf9a3a601568764eaac9a4aba9065bbfe8d35651d28；check_apk/apksigner/zipalign/aapt通过，证书与0.2/0.3相同。"}]
 ---
 
@@ -16,7 +16,7 @@ external_checks: [{"checked_at": "2026-10-17T12:21:24Z", "service": "GitHub Acti
 
 # 已验证
 
-最终本地ARM64通过ADB MCP assembleDebug lintDebug（0错误21警告）、tools/check_apk.py、apksigner及16KB zipalign；签名与0.2/0.3一致。local APK SHA256 6ae6937bd266acf93cffe6e381188f1f8e1959dd1d4229c61e84fc768c734382，CI产物待回验。
+最终本地ARM64通过ADB MCP assembleDebug lintDebug（0错误21警告）、tools/check_apk.py、apksigner及16KB zipalign；签名与0.2/0.3一致。local APK SHA256 6ae6937bd266acf93cffe6e381188f1f8e1959dd1d4229c61e84fc768c734382，最终标签CI39032008856成功，已从Release下载回验：40,610,530 bytes，SHA256 dec3f42465ef3705af2e5bf9a3a601568764eaac9a4aba9065bbfe8d35651d28；包/签名/对齐检查通过，证书与0.2/0.3相同。详情docs/build-verification-3.1.0.md。
 
 模拟器实际生成纯取景与启用识别照片、fresh GPS/关闭定位off/拒绝权限permission_denied/近似授权无网络位置searching记录；check_report验证时间/对象/位置/照片hash，PIL回读GPS EXIF，新记录包含来源ID。观察过期缓存显示stale，dumpsys证明约10秒更新、离开应用停止注册。横竖屏照片及底部面板视觉检查通过。系统分享页显示2文件；ACTION_CREATE_DOCUMENT保存至Download后pull回，JSON和私有记录完全相同；crash buffer无崩溃。所有定位为模拟器测试坐标，geo fix未必标mock，不是真实GNSS证据。
 
