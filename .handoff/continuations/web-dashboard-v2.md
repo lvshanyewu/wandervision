@@ -6,7 +6,7 @@ title: "交大南岸校区 Demo 完善与 App 联动"
 module_id: "web-dashboard"
 status: "done"
 next_step: "用户在线验收校园Web及安装Android3.2真机测试配对/定位/照片上传；后续按反馈完善病害模型和可靠离线队列。"
-updated_at: "2026-10-17T21:55:05+08:00"
+updated_at: "2026-10-17T21:55:33+08:00"
 ---
 
 # 已实现
@@ -23,7 +23,7 @@ App3.2模拟器实际界面已配对PHONE-01、前台无GPS心跳、拍照上传
 公网https://lvshanyewu.site/wandervision/。最终release=/opt/wandervision/releases/20261017T134647Z；rollback：python web/deploy/deploy.py --rollback /opt/wandervision/backups/20261017T134647Z。独立systemd active，启动MemoryCurrent14471168 bytes；只重启本服务，Nginx路径body6m，备份并nginx-t/reload，其他应用保持运行。SQLite和手机配对/照片跨发布保留。
 
 # 协作与代码
-codex/web-dashboard-v1分支PR1，功能与修复已推送到6c8b2a3。共享主目录Web源码同步，Android交由用户授权的现有App对话实现/构建/发布。本次沟通使用Codex线程工具，未派生额外代理。App APK发布结果待汇入最终记录。
+codex/web-dashboard-v1分支PR1，功能与修复已推送到6c8b2a3。共享主目录Web源码同步，Android交由用户授权的现有App对话实现/构建/发布。本次沟通使用Codex线程工具，未派生额外代理。App APK发布结果见下方最终交付。
 
 
 最终网页下载按钮明确指向 v3.2.0 Release，避免 releases/latest 跳到不含联动的旧版。
