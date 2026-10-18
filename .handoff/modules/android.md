@@ -3,7 +3,7 @@ schema_version: 1
 type: "module"
 id: "android"
 title: "Android 本地视觉与构建"
-summary: "3.2原生巡检App：NCNN本地识别、同帧定位照片/JSON、HTTPS配对与前台心跳、手动幂等上传及系统浏览器仪表盘；未加入病害模型/Turnip。"
+summary: "3.3原生巡检App：COCO/RDD2022 Nano+Small、LIVE前台开关/HTTP1.1长流、内嵌手机地图，保留同帧定位照片/配对心跳/幂等上传；真机持续帧率与路害效果待验收。"
 aliases: []
 tags: ["Android", "NCNN"]
 sources: ["android/app/build.gradle", "android/app/src/main/java/", "android/app/src/main/jni/*.cpp", "android/app/src/main/jni/*.h", "android/app/src/main/jni/CMakeLists.txt", "android/app/src/main/assets/*.ncnn.*", "android/app/src/main/res/", "android/app/src/main/AndroidManifest.xml", "tools/prepare_native.py", "tools/check_apk.py", "tools/check_report.py", "docs/inspection-record.md", "android/app/src/androidTest/", "docs/android-monitor.md"]
@@ -12,20 +12,18 @@ related_modules: []
 business_rules: []
 invariants: []
 consumers: []
-updated_at: "2026-10-17T21:42:08+08:00"
+updated_at: "2026-10-18T10:12:21+08:00"
 ---
 
 # 当前实现
 
-基于 nihui/ncnn-android-yolov8 提交 f1ac75ec54ccb3817a9eba620fe51da8bdcf87ca，保留NCNN动态形状COCO推理预处理/输出解析。Nano与Small原生模型，不训练/重导出；通用80类、车辆COCO1/2/3/5/7过滤、纯取景关闭推理；320/480/640、CPU/系统Vulkan，GPU不可用回退CPU。未添加病害模型或Turnip运行选项，调查见model-research模块。
+Android 3.3.0/versionCode6，包名io.github.lvshanyewu.wandervision。NCNN本地链路保留COCO Nano/Small，并新增RDD2022 Nano/Small四类路害（纵裂/横裂/龟裂/坑洞）；ModelCatalog稳定model_id与模型内class_id，车辆过滤只用于COCO。prepare_native调用prepare_models固定公开模型包/哈希，第三方来源许可随APK。输入320/480/640，CPU/系统Vulkan，无Turnip。
 
-CameraUi为原生View/Canvas黑灰黄界面，侧栏、快门、弧表/真实指标、横竖屏布局。3.1所有应用面板从底部上滑进入、下滑退出；系统权限/分享/文件选择器保留系统行为。统计面板是快照/显示FPS趋势，不是去重车辆数。地图/轨迹仍禁用占位。
+原生黑黄巡检UI，底部弹窗由下上移且提前定尺寸。LIVE需配对启用、首开披露公开演示用途，后续单击开关；JNI单槽带框最新帧长边640，JPEG55/80ms采样，TLS默认信任+主机名校验的HTTP1.1 chunked持续上传，UUID/公开状态匹配才显示接收FPS。55秒/14MiB轮换，2.5秒写watchdog，离开前台、切换镜头/模型、暂停/解除连接停止；无录像/后台服务。最后原生连续流帧率未验证，不可声称10–15FPS达成。
 
-3.1快门不再截图Window/UI：请求下一native帧，推理锁内按需复制已画框RGB、目标数组/统计与CLOCK_BOOTTIME时间，JNI返回FrameCapture。照片来源是按实际显示方向旋转并等比中心裁切的预览帧，不是高像素静态拍照。2秒超时失败不取旧图；保存时阻止切模型/输入/模式/镜头。InspectionReport生成带时间、WGS84位置/精度/年龄、模型/输入/引擎与记录号的JPEG，检测结果与照片同帧。旧版本PixelCopy黑图合成方案已被此路径替代，旧截图仍可查看/分享。
+App内同源/mobile只读WebView地图/设备概览，无token URL、JS桥、网页位置/相机权限或宽松TLS，关闭销毁。保留简化本地仪表盘。
 
-LocationTracker使用平台GPS/network，前台约10秒/0距离请求，无Play Services或后台服务。支持fine/coarse，拒绝或关闭定位仍可取景；最多接受2分钟缓存，超过30秒标stale，UI不伪造经纬度。coarse且无网络位置时等待，不误报系统定位关闭。JSON标WGS84、精度、样本年龄/时刻/权限/系统mock标记；模拟器geo fix可能不带mock标记。离开应用removeUpdates。新鲜/近似坐标写GPS EXIF，stale不写；分享照片包含位置。
-
-Android10+通过MediaStore.pending保存Pictures/wandervision，回读JPEG算SHA256，AtomicFile持久化files/reports/UUID.json，随后发布图片并提交SharedPreferences最近30条索引。JSON带schema1.0、随机安装ID来源、帧/全部检测、位置质量、照片校验和与local_only；源content URI不能当服务端URL。image.viewfinder_rect_px映射归一化框到报告照片。最近30条不是JSON保留上限；卸载/清数据移除私有JSON。失败清理本次记录，崩溃恢复/配额/可靠上传队列尚未实现。ReportProvider仅通过临时授权只读分享UUID.json；支持照片+JSON分享和ACTION_CREATE_DOCUMENT导出JSON。3.2新增INTERNET权限用于用户启用的固定HTTPS监控连接，无录像。
+既有LocationTracker前台约10秒WGS84、30秒过期；JNI同帧取景生成含定位/检测信息JPEG与不可变schema1.0原JSON、EXIF与SHA；私有回执与手动幂等上传分离。MonitorLink独立网络队列，固定HTTPS配对/10秒前台心跳、凭据epoch fencing、隐私备份排除。模型/位置/相机实效仅由用户真机反馈确认。构建与边界详见docs/build-verification-3.3.0.md、docs/android-live.md。
 
 # 构建与发布入口
 

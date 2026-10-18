@@ -313,10 +313,10 @@ int YOLOv8_det::detect(const cv::Mat& rgb, std::vector<Object>& objects)
 
     ncnn::Extractor ex = yolov8.create_extractor();
 
-    ex.input("in0", in_pad);
+    if (ex.input("in0", in_pad) != 0) return -1;
 
     ncnn::Mat out;
-    ex.extract("out0", out);
+    if (ex.extract("out0", out) != 0 || out.dims != 2 || out.w != 64+classes) return -1;
 
     std::vector<Object> proposals;
     generate_proposals(out, strides, in_pad, prob_threshold, proposals);
@@ -384,7 +384,9 @@ int YOLOv8_det_coco::draw(cv::Mat& rgb, const std::vector<Object>& objects)
         const cv::Scalar color(255,223,27);
         cv::rectangle(rgb, obj.rect, color, 1, cv::LINE_AA);
         char text[128];
-        snprintf(text,sizeof(text),"%s  %.0f%%",class_names[obj.label],obj.prob*100);
+        static const char* road_names[]={"longitudinal crack","transverse crack","alligator crack","pothole"};
+        const char* name=road?(obj.label>=0&&obj.label<4?road_names[obj.label]:"unknown"):(obj.label>=0&&obj.label<80?class_names[obj.label]:"unknown");
+        snprintf(text,sizeof(text),"%s  %.0f%%",name,obj.prob*100);
         int base=0;
         const double scale=0.38;
         cv::Size size=cv::getTextSize(text,cv::FONT_HERSHEY_SIMPLEX,scale,1,&base);

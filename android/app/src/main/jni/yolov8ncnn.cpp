@@ -27,6 +27,7 @@
 #include <condition_variable>
 #include <chrono>
 #include <time.h>
+#include <cmath>
 
 #include <platform.h>
 #include <gpu.h>
@@ -78,6 +79,10 @@ static cv::Mat capture_rgb;
 static std::vector<Object> capture_objects;
 static float capture_stats[7];
 static jlong capture_elapsed_ns = 0, capture_frame_id = 0, frame_counter = 0;
+static std::mutex live_lock;
+static bool live_enabled = false;
+static cv::Mat live_rgb;
+static double live_at = 0;
 
 class MyNdkCamera : public NdkCameraWindow
 {
@@ -111,6 +116,14 @@ void MyNdkCamera::on_image_render(cv::Mat& rgb) const {
     }
     g_stats[4]++;
     ++frame_counter;
+    {
+        std::lock_guard<std::mutex> live_guard(live_lock);
+        if (live_enabled && now-live_at >= 80) {
+            const float scale = std::min(1.f, 640.f / std::max(rgb.cols, rgb.rows));
+            cv::resize(rgb, live_rgb, cv::Size(std::max(1,(int)(rgb.cols*scale)), std::max(1,(int)(rgb.rows*scale))));
+            live_at = now;
+        }
+    }
     std::lock_guard<std::mutex> capture_guard(capture_lock);
     if (capture_wanted) {
         rgb.copyTo(capture_rgb);
@@ -128,6 +141,34 @@ void MyNdkCamera::on_image_render(cv::Mat& rgb) const {
 static MyNdkCamera* g_camera = 0;
 
 extern "C" {
+
+JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_smokeModel(JNIEnv*, jobject, jint width, jint height) {
+    if(width<32||height<32||width>640||height>640)return JNI_FALSE;
+    ncnn::MutexLockGuard guard(lock);
+    if(!g_yolov8)return JNI_FALSE;
+    cv::Mat input(height,width,CV_8UC3,cv::Scalar(128,128,128));std::vector<Object> objects;
+    if(g_yolov8->detect(input,objects)!=0)return JNI_FALSE;
+    for(const auto& o:objects)if(!std::isfinite(o.prob)||o.label<0||!std::isfinite(o.rect.x)||!std::isfinite(o.rect.y))return JNI_FALSE;
+    g_yolov8->draw(input,objects);return JNI_TRUE;
+}
+
+JNIEXPORT void JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_setLiveEnabled(JNIEnv*, jobject, jboolean enabled) {
+    std::lock_guard<std::mutex> guard(live_lock);
+    live_enabled = enabled; live_rgb.release(); live_at = 0;
+}
+JNIEXPORT jintArray JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_takeLivePixels(JNIEnv* env, jobject) {
+    std::lock_guard<std::mutex> guard(live_lock);
+    if (!live_enabled || live_rgb.empty() || ncnn::get_current_time()-live_at > 500) return nullptr;
+    int w=live_rgb.cols, h=live_rgb.rows;
+    std::vector<jint> pixels(w*h+2);pixels[0]=w;pixels[1]=h;
+    for(int y=0;y<h;y++) { const unsigned char* row=live_rgb.ptr<unsigned char>(y);
+        for(int x=0;x<w;x++) pixels[2+y*w+x]=(jint)(0xff000000u|(row[x*3]<<16)|(row[x*3+1]<<8)|row[x*3+2]);
+    }
+    live_rgb.release();
+    jintArray result=env->NewIntArray(pixels.size());
+    if(result)env->SetIntArrayRegion(result,0,pixels.size(),pixels.data());
+    return result;
+}
 
 JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)
 {
@@ -160,7 +201,7 @@ JNIEXPORT void JNI_OnUnload(JavaVM* vm, void* reserved)
 // public native boolean loadModel(AssetManager mgr, int taskid, int modelid, int cpugpu);
 JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_loadModel(JNIEnv* env, jobject thiz, jobject assetManager, jint taskid, jint modelid, jint cpugpu, jint capacity)
 {
-    if (taskid < 0 || taskid > 1 || modelid < 0 || modelid > 2 || cpugpu < 0 || cpugpu > 1 || capacity < 0 || capacity > 1)
+    if (taskid < 0 || taskid > 1 || modelid < 0 || modelid > 2 || cpugpu < 0 || cpugpu > 1 || capacity < 0 || capacity > 3)
         return JNI_FALSE;
     AAssetManager* mgr = AAssetManager_fromJava(env, assetManager);
     ncnn::MutexLockGuard g(lock);
@@ -173,9 +214,14 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_loadModel(JNIE
         ncnn::create_gpu_instance();
         if (ncnn::get_gpu_count() == 0) use_gpu = false;
     }
-    g_yolov8 = new YOLOv8_det_coco;
-    const char* param = capacity == 0 ? "yolov8n.ncnn.param" : "yolov8s.ncnn.param";
-    const char* weights = capacity == 0 ? "yolov8n.ncnn.bin" : "yolov8s.ncnn.bin";
+    auto* detector = new YOLOv8_det_coco;
+    detector->road = capacity >= 2;
+    detector->classes = capacity >= 2 ? 4 : 80;
+    g_yolov8 = detector;
+    const char* params[] = {"yolov8n.ncnn.param","yolov8s.ncnn.param","rdd2022-yolov8n.ncnn.param","rdd2022-yolov8s.ncnn.param"};
+    const char* bins[] = {"yolov8n.ncnn.bin","yolov8s.ncnn.bin","rdd2022-yolov8n.ncnn.bin","rdd2022-yolov8s.ncnn.bin"};
+    const char* param = params[capacity];
+    const char* weights = bins[capacity];
     g_stats[6]=0;
     if (g_yolov8->load(mgr, param, weights, use_gpu) != 0) {
         delete g_yolov8;
@@ -184,7 +230,7 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_loadModel(JNIE
     }
     const int sizes[] = {320, 480, 640};
     g_yolov8->set_det_target_size(sizes[modelid]);
-    g_vehicle_only = taskid == 1;
+    g_vehicle_only = taskid == 1 && capacity < 2;
     g_stats[5]=use_gpu ? 1 : 0; g_stats[6]=1;
     g_stats[0]=0; g_stats[1]=0; g_stats[2]=0; g_stats[3]=0; g_last_frame=0; g_frame_interval=0;
     return JNI_TRUE;

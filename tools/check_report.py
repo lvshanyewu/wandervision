@@ -26,7 +26,10 @@ assert j['objects'] == len(inf['detections'])
 if not inf['enabled']:
     assert not inf['detections'] and inf['inference_ms'] is None and inf['max_confidence'] is None
 for detection in inf['detections']:
-    assert 0 <= detection['class_id'] < 80 and detection['label']
+    road = inf['model_id'] in {'rdd2022-yolov8n','rdd2022-yolov8s'}
+    assert 0 <= detection['class_id'] < (4 if road else 80) and detection['label']
+    if road:
+        assert detection['label'] == ['longitudinal_crack','transverse_crack','alligator_crack','pothole'][detection['class_id']]
     assert 0 <= detection['confidence'] <= 1
     box = detection['bbox_xywh_normalized']
     assert len(box) == 4 and all(math.isfinite(x) and 0 <= x <= 1 for x in box)

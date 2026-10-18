@@ -41,6 +41,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
     private LocationTracker location;
     private MonitorLink monitor;
     private MonitorUi monitorUi;
+    private LiveStream liveStream;
     private String exportId;
     private String installationId;
     private int facing=1,mode=0,capacity=0,resolution=0,backend=0,generation;
@@ -56,6 +57,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
             stats=next;
             boolean fresh=cameraOpen&&stats[4]>frameAtOpen;
             ui.stats(stats,fresh,mode==2);
+            ui.liveState(liveStream.label(),liveStream.active());
             ui.location(location.label());
             if(fresh){ui.busy("");System.arraycopy(fpsHistory,1,fpsHistory,0,fpsHistory.length-1);fpsHistory[fpsHistory.length-1]=stats[0];}
             main.postDelayed(this,500);
@@ -71,19 +73,21 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         installationId=preferences.getString("installation_id",null);if(installationId==null){installationId=UUID.randomUUID().toString();preferences.edit().putString("installation_id",installationId).apply();}
         exportId=state==null?null:state.getString("export_id");
         facing=preferences.getInt("facing",1); mode=preferences.getInt("mode",0); capacity=preferences.getInt("capacity",0); resolution=preferences.getInt("resolution",0); backend=preferences.getInt("backend",0);
-        if(facing<0||facing>1)facing=1;if(mode<0||mode>2)mode=0;if(capacity<0||capacity>1)capacity=0;if(resolution<0||resolution>2)resolution=0;if(backend<0||backend>1)backend=0;
+        if(facing<0||facing>1)facing=1;if(mode<0||mode>3)mode=0;if(capacity<0||capacity>3)capacity=0;if(resolution<0||resolution>2)resolution=0;if(backend<0||backend>1)backend=0;
         try{captures=new JSONArray(preferences.getString("captures","[]"));}catch(JSONException ignored){captures=new JSONArray();}
         ui=new CameraUi(this,this); setContentView(ui.root); ui.root.requestApplyInsets();
         location=new LocationTracker(this,()->{if(!destroyed)ui.location(location.label());});
-        monitor=new MonitorLink(this,this::heartbeatSnapshot,()->{if(!destroyed&&monitorUi!=null)monitorUi.refreshStatus();});
+        monitor=new MonitorLink(this,this::heartbeatSnapshot,()->{if(!destroyed&&monitorUi!=null){monitorUi.refreshStatus();if(liveStream!=null)liveStream.connectionChanged();}});
         monitorUi=new MonitorUi(this,ui,monitor);
+        liveStream=new LiveStream(detector,monitor,()->{if(!destroyed)ui.liveState(liveStream.label(),liveStream.active());});
+        ui.liveState(liveStream.label(),false);
         ui.surface.getHolder().setFormat(PixelFormat.RGBA_8888);ui.surface.getHolder().addCallback(this);
         ui.overlay.grid=preferences.getBoolean("grid",false); refreshProfile();reload();
     }
     private void refreshProfile(){ui.profile(mode,capacity,resolution,backend,captures.length());ui.lens(facing);}
     private void persist(){preferences.edit().putInt("facing",facing).putInt("mode",mode).putInt("capacity",capacity).putInt("resolution",resolution).putInt("backend",backend).apply();}
     private void reload(){
-        closeCamera();modelReady=false;ui.busy("正在载入 "+(capacity==0?"YOLOv8 Nano":"YOLOv8 Small")+"…");
+        closeCamera();modelReady=false;ui.busy("正在载入 "+ModelCatalog.name(capacity)+"…");
         persist();refreshProfile();final int ticket=++generation,m=mode,c=capacity,r=resolution,b=backend;
         ENGINE.execute(()->{
             if(destroyed)return;
@@ -104,7 +108,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
             if(!cameraOpen)ui.busy("摄像头未能打开\n请检查权限，或切换镜头重试");
         }
     }
-    private void closeCamera(){if(cameraOpen)detector.closeCamera();cameraOpen=false;}
+    private void closeCamera(){if(liveStream!=null)liveStream.stop();if(cameraOpen)detector.closeCamera();cameraOpen=false;}
     @Override public void onResume(){super.onResume();resumed=true;
         if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED) requestPermissions(new String[]{Manifest.permission.CAMERA},REQUEST_CAMERA);
         else {openCameraIfReady();startLocation();}main.removeCallbacks(poll);main.post(poll);monitor.foreground(true);
@@ -142,8 +146,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         closeCamera();detector.configureView(getWindowManager().getDefaultDisplay().getRotation()*90,width,height);detector.setOutputWindow(holder.getSurface());surfaceReady=true;openCameraIfReady();
     }
     @Override public void surfaceDestroyed(SurfaceHolder holder){surfaceReady=false;closeCamera();}
-    @Override public void mode(int value){if(captureBusy())return;if(mode!=value){mode=value;reload();}}
-    @Override public void model(){choose("检测模型","两个模型均可识别 COCO 80 类；车辆模式只显示车辆类别。",new String[]{"Nano · 轻快基线  /  6.3 MB","Small · 更大模型  /  22.3 MB"},capacity,v->{capacity=v;reload();});}
+    @Override public void mode(int value){if(captureBusy())return;if(mode!=value){mode=value;if(mode==3)capacity=2+capacity%2;else if(mode!=2)capacity=capacity%2;reload();}}
+    @Override public void model(){choose("检测模型","COCO保留通用/车辆检测；RDD2022识别纵向裂缝、横向裂缝、龟裂、坑洞。病害模型为实验选项，真机效果请对照测试。",new String[]{"COCO Nano · 轻快基线","COCO Small · 车辆/通用对照","RDD2022 Nano · 四类路害","RDD2022 Small · 四类路害对照"},capacity,v->{capacity=v;if(v>=2)mode=3;else if(mode==3)mode=0;reload();});}
     @Override public void size(){choose("推理输入尺寸","更大尺寸有助于保留细节，也会增加推理开销。请在真机比较。",new String[]{"320 px · 流畅优先","480 px · 平衡","640 px · 细节优先"},resolution,v->{resolution=v;reload();});}
     @Override public void engine(){choose("计算引擎","GPU 速度不保证高于 CPU；设备不支持 Vulkan 时会回退到 CPU。",new String[]{"CPU · 本地计算","Vulkan GPU · 本地计算"},backend,v->{backend=v;reload();});}
     @Override public void flip(){if(captureBusy())return;closeCamera();facing=1-facing;persist();ui.lens(facing);ui.busy("正在切换镜头…");openCameraIfReady();}
@@ -168,16 +172,15 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         sheetRow(box,"相机权限与应用信息",CameraUi.WHITE,()->{d.dismiss();startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));});
         sheetRow(box,"开源来源与许可",CameraUi.MUTED,()->{d.dismiss();showLicenses();});d.show();
     }
-    private void showLicenses(){Dialog d=ui.sheet("开源许可","wandervision 3.2.0 · AGPL-3.0\nNCNN Android YOLOv8 / Tencent NCNN / OpenCV Mobile");
-        LinearLayout box=ui.sheetBody(d);String[] paths={"THIRD_PARTY_NOTICES.md","LICENSE","ncnn-BSD-3-Clause.txt","opencv-LICENSE.txt","opencv-mobile-LICENSE.txt","Apache-2.0.txt"};
+    private void showLicenses(){Dialog d=ui.sheet("开源许可","wandervision 3.3.0 · AGPL-3.0\nNCNN Android YOLOv8 / Tencent NCNN / OpenCV Mobile");
+        LinearLayout box=ui.sheetBody(d);String[] paths={"THIRD_PARTY_NOTICES.md","RDD2022-MODELS.md","LICENSE","ncnn-BSD-3-Clause.txt","opencv-LICENSE.txt","opencv-mobile-LICENSE.txt","Apache-2.0.txt"};
         for(String path:paths)sheetRow(box,path,CameraUi.WHITE,()->{d.dismiss();ENGINE.execute(()->{try(InputStream in=getAssets().open("licenses/"+path);ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] buffer=new byte[8192];int n;while((n=in.read(buffer))!=-1)out.write(buffer,0,n);String text=out.toString("UTF-8");main.post(()->{if(destroyed)return;Dialog license=ui.sheet(path,"随 APK 提供的原始许可文本");TextView t=ui.text(text,11,CameraUi.MUTED);t.setTextIsSelectable(true);ui.sheetBody(license).addView(t);license.show();});}catch(IOException e){main.post(()->toast("无法读取许可文本"));}});});d.show();
     }
     @Override public void dashboard(){
         boolean fresh=cameraOpen&&stats[4]>frameAtOpen;String active=fresh?(mode==2?"纯取景":"本地检测"):"等待画面";
-        Dialog d=ui.sheet("实时仪表盘",active+"  /  "+(capacity==0?"YOLOv8 Nano":"YOLOv8 Small")+"\n以下为打开面板时的真实快照；目标数是当前帧数量，不是去重车辆总数。");LinearLayout box=ui.sheetBody(d);
-        ui.dashboardTiles(box,stats,fresh,mode==2,captures.length(),capacity==0?"YOLOv8 Nano":"YOLOv8 Small",stats[5]==1?"Vulkan GPU":"CPU");
-        TextView chartlabel=ui.text("近期显示帧率趋势",10,CameraUi.MUTED);box.addView(chartlabel);
-        box.addView(new FpsChart(this,fpsHistory.clone()),new LinearLayout.LayoutParams(-1,ui.dp(88)));d.show();
+        Dialog d=ui.sheet("实时仪表盘",active+"  /  "+ModelCatalog.name(capacity)+"\n以下为打开面板时的真实快照；目标数是当前帧数量，不是去重车辆总数。");LinearLayout box=ui.sheetBody(d);
+        ui.dashboardTiles(box,stats,fresh,mode==2,captures.length(),ModelCatalog.name(capacity),stats[5]==1?"Vulkan GPU":"CPU");
+        sheetRow(box,"设备地图与监控概览",CameraUi.YELLOW,()->{d.dismiss();monitorUi.dashboard();});d.show();
     }
     private boolean captureBusy(){if(capturing){toast("取景照片正在生成，请稍候");return true;}return false;}
     @Override public void shutter(){
@@ -254,6 +257,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         try{startActivity(Intent.createChooser(share,"导出巡检照片与结构化记录"));}catch(ActivityNotFoundException e){toast("没有可用的分享应用");}
     }
     @Override public void monitorDashboard(){monitorUi.dashboard();}
+    @Override public void live(){
+        if(liveStream.active()){liveStream.stop();return;}
+        if(monitor.store.credentials()==null||!monitor.store.enabled()){monitorUi.connection();return;}
+        if(!cameraOpen){toast("请等待取景器就绪");return;}
+        if(preferences.getBoolean("live_disclosed",false)){liveStream.start();return;}
+        Dialog d=ui.sheet("开启实时传输","将带检测框的取景画面持续传至公开课程监控中心，观看者可看到画面。仅前台传输，离开App或切换镜头/模型自动停止；再次点击LIVE关闭。目标10–15 FPS，实际受网络和编码速度影响。");
+        sheetRow(ui.sheetBody(d),"开启 LIVE · 使用移动数据时注意流量",CameraUi.YELLOW,()->{d.dismiss();preferences.edit().putBoolean("live_disclosed",true).apply();liveStream.start();});d.show();
+    }
     private JSONObject heartbeatSnapshot() throws Exception {
         JSONObject data=new JSONObject();long now=SystemClock.elapsedRealtimeNanos();LocationTracker.Fix fix=location.freeze();JSONObject position=fix.json(now);
         String status=position.optString("status");boolean emulator=Build.HARDWARE.contains("ranchu")||Build.HARDWARE.contains("goldfish")||Build.FINGERPRINT.startsWith("generic")||Build.MODEL.contains("sdk_gphone");
