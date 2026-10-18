@@ -3,16 +3,16 @@ schema_version: 1
 type: "module"
 id: "web-dashboard"
 title: "Web 道路巡检监控中心"
-summary: "交大南岸校区 Web v2 已上线：10模拟+3手机接入位、透视循环场景、设置/配额清理、配对心跳及原始JPEG/JSON上传；App3.2模拟器端到端验证通过，真机效果待验证。"
+summary: "校园Web v3：轻量手机地图与LIVE、内存短TTL最新JPEG、鉴权长连接上传/原生MJPEG观看；48项测试，合成公网流约12FPS，App原生/真机效果待用户验收。"
 aliases: []
 tags: []
-sources: ["web/server.py", "web/static/index.html", "web/static/app.js", "web/static/style.css", "web/static/upgrade.js", "web/static/upgrade.css", "web/static/scene.js", "web/static/data/SOURCES.md", "web/static/data/asset-checksums.json", "web/deploy/deploy.py", "web/tests/*.py", "tools/prepare_web_maps.py", "docs/web-dashboard.md"]
+sources: ["web/server.py", "web/static/index.html", "web/static/app.js", "web/static/style.css", "web/static/upgrade.js", "web/static/upgrade.css", "web/static/scene.js", "web/static/data/SOURCES.md", "web/static/data/asset-checksums.json", "web/deploy/deploy.py", "web/tests/*.py", "tools/prepare_web_maps.py", "docs/web-dashboard.md", "web/static/live.js", "web/static/live.css", "web/static/mobile/*", "docs/android-live-contract.md"]
 dependencies: []
 related_modules: ["android", "roadmap"]
 business_rules: []
 invariants: []
 consumers: []
-updated_at: "2026-10-17T21:40:52+08:00"
+updated_at: "2026-10-18T10:09:49+08:00"
 ---
 
 # Web 道路巡检监控中心
@@ -37,4 +37,10 @@ POST devices/PHONE-01/reports接受原始schema_version1.0 report和image_base64
 https://lvshanyewu.site/wandervision/；仓库根python web/server.py后访问http://127.0.0.1:8090/。部署及完整契约见docs/web-dashboard.md。独立systemd wandervision，/opt/wandervision/releases/current、StateDirectory=/var/lib/wandervision；5065仅绑定Docker网关。DynamicUser、128MiB/25%CPU；Nginx只改命名主站/wandervision/路由和6MiB body限制，每次备份/nginx-t/reload，无其他服务全量重启。精确发布/回退目录在continuation。
 
 ## 验证边界
-32项Python测试涵盖状态/鉴权/配对/幂等/原图/限额/回收空间/部署。浏览器桌面和390px移动检查及线上资产哈希通过。实际App3.2模拟器配对、心跳、拍照上传、重复上传和网页原图SHA256/本机字节一致已验证；无有效GPS、0检测、测试照片标TEST。真实手机GPS/摄像头/识别效果/FPS/稳定性仍须用户实机反馈，视频尚未接入。
+48项Python测试涵盖状态/鉴权/配对/幂等/原图/限额/回收空间/部署。浏览器桌面和390px移动检查及线上资产哈希通过。实际App3.2模拟器配对、心跳、拍照上传、重复上传和网页原图SHA256/本机字节一致已验证；无有效GPS、0检测、测试照片标TEST。真实手机GPS/摄像头/识别效果/FPS/稳定性仍须用户实机反馈，编码视频尚未接入；最新JPEG LIVE见下节。
+
+
+## LIVE与手机仪表盘（2026-10-18）
+/mobile/?device=PHONE-01只读简版地图/设备/LIVE，支持App内WebView，无token URL、网页相机定位或JS桥。桌面真实设备预览展开LIVE，原照片留采集档案。上传兼容rawJPEG，推荐/live/stream HTTP1.1 chunked：4字节BE长度/JPEG/零结束，Bearer和UUID stream_id；单帧256KiB/1280边/921600像素，15FPS，一写通道，每会话60秒/16MiB，5秒读超时。stop/重配/清库epoch阻断晚帧，逐帧凭据复核。三条精确Nginx路径关闭请求缓冲，其他服务不变。
+每手机仅最新帧内存，2秒stale/5秒释放，无报告SQL写入或假GPS。GET状态/frame.jpg ETag/原生mjpeg，最多6观看连接60秒，不转码，浏览器隐藏断开；元数据过期定时清图，MJPEG不可用回退顺序JPEG读取。报告使用model_id和label展示RDD四类，保留原JSON而不按COCO编号猜类别。完整约束见docs/android-live-contract.md。
+48项自动测试及本地浏览器移动/桌面已通过；公网合成长流在请求未结束时约11.5–13.6FPS，原图一致。App逐帧原生实测1.7–1.8FPS，Android HTTP缓冲/HTTP1.1改动及真实手机10–15FPS仍待用户实际测试，不能用合成流代替。用户2026-10-18因额度要求快速收尾，不继续扩展/长测。
