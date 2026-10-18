@@ -29,6 +29,12 @@ PUBLIC_BASE = os.environ.get('WV_PUBLIC_BASE', 'https://lvshanyewu.site/wandervi
 MAX_IMAGE = 4 * 1024 * 1024
 MAX_REPORTS = 50
 MAX_REPORT_BYTES = 96 * 1024 * 1024
+MAX_LIVE_BYTES = 256 * 1024
+PHONE_IDS = ('PHONE-01', 'PHONE-02', 'PHONE-03')
+
+
+class LiveRateLimit(ValueError):
+    pass
 
 
 def jpeg_size(data):
@@ -102,6 +108,9 @@ class Engine:
             CREATE INDEX IF NOT EXISTS report_received ON reports(received);
             CREATE INDEX IF NOT EXISTS event_observed ON events(observed);''')
         self.pairings = {}
+        self.live_frames = {}
+        self.live_attempts = {key: deque(maxlen=15) for key in PHONE_IDS}
+        self.live_sequence = 0
         self.pair_attempts = deque(maxlen=100)
         self.last_prune = self.clock()
         self.routes = json.loads((HERE / 'static/data/routes.json').read_text(encoding='utf-8'))
@@ -193,6 +202,7 @@ class Engine:
 
     def tick(self):
         with self.lock:
+            for key in PHONE_IDS:self.live_meta(key)
             now = self.clock()
             if now-self.last_prune>=3600:
                 self.prune();self.last_prune=now
@@ -283,6 +293,7 @@ class Engine:
             now = self.clock()
             real = json.loads(json.dumps(self.real))
             for d in real:
+                d['live'] = self.live_meta(d['id'])
                 if d['last_seen'] is not None and now-d['last_seen']>30:
                     d['status']='offline'
             devices = json.loads(json.dumps(self.devices)) + real
@@ -335,6 +346,52 @@ class Engine:
             row=self.db.execute('SELECT token_hash FROM credentials WHERE device_id=?',(device_id,)).fetchone()
             return bool(row and hmac.compare_digest(row[0],hashlib.sha256(raw.encode()).hexdigest()))
 
+    def reserve_live(self, device_id):
+        with self.lock:
+            times=self.live_attempts[device_id];now=self.clock()
+            while times and now-times[0]>=1:times.popleft()
+            if len(times)>=15:raise LiveRateLimit('LIVE limit: 15 uploads/second per device')
+            times.append(now)
+
+    def receive_live(self, device_id, data, test_data=False):
+        if not data or len(data)>MAX_LIVE_BYTES:raise ValueError('LIVE JPEG exceeds 256 KiB')
+        width,height=jpeg_size(data)
+        if max(width,height)>1280 or width*height>921600:raise ValueError('LIVE JPEG exceeds 1280px edge / 921600 pixels')
+        with self.lock:
+            now=self.clock();old=self.live_frames.get(device_id,{})
+            times=deque((t for t in old.get('times',[]) if now-t<2),maxlen=30)
+            times.append(now);self.live_sequence+=1
+            self.live_frames[device_id]={'image':data,'frame_id':self.live_sequence,'received':now,
+                'width':width,'height':height,'bytes':len(data),'test_data':bool(test_data),'times':times,'state':'live'}
+            return {'ok':True,**self.live_meta(device_id)}
+
+    def live_meta(self, device_id):
+        with self.lock:
+            frame=self.live_frames.get(device_id)
+            if not frame:return {'device_id':device_id,'state':'idle','frame_id':None,'received_at':None,
+                'age_ms':None,'fps':0,'width':0,'height':0,'bytes':0,'test_data':False,'max_fps':15}
+            age=max(0,self.clock()-frame['received']);state=frame['state']
+            if state!='stopped':state='live' if age<=2 else 'stale' if age<5 else 'expired'
+            if age>=5 or state=='stopped':frame.pop('image',None)
+            times=[t for t in frame.get('times',[]) if self.clock()-t<2]
+            fps=round((len(times)-1)/(times[-1]-times[0]),1) if state=='live' and len(times)>1 and times[-1]>times[0] else 0
+            return {'device_id':device_id,'state':state,'frame_id':frame['frame_id'],'received_at':iso(frame['received']),
+                'age_ms':round(age*1000),'fps':fps,'max_fps':15,
+                **{k:frame[k] for k in ['width','height','bytes','test_data']}}
+
+    def live_image(self, device_id):
+        with self.lock:
+            meta=self.live_meta(device_id)
+            return meta,self.live_frames.get(device_id,{}).get('image') if meta['state']=='live' else None
+
+    def stop_live(self, device_id):
+        with self.lock:
+            frame=self.live_frames.get(device_id)
+            if frame:frame.pop('image',None);frame['state']='stopped';frame['times']=deque(maxlen=30)
+            else:self.live_frames[device_id]={'state':'stopped','received':self.clock(),'frame_id':None,
+                'width':0,'height':0,'bytes':0,'test_data':False,'times':deque(maxlen=30)}
+            return {'ok':True,'state':'stopped'}
+
     def pairing_code(self, body):
         device_id=body.get('device_id') if isinstance(body,dict) else None
         if device_id not in ['PHONE-01','PHONE-02','PHONE-03']:raise ValueError('Invalid phone slot')
@@ -356,6 +413,7 @@ class Engine:
             p=self.pairings.pop(body['code'],None)
             if not p or p['expires']<now:raise ValueError('Pairing code expired or invalid')
             token=secrets.token_urlsafe(32)
+            self.stop_live(p['device_id'])
             self.db.execute('INSERT OR REPLACE INTO credentials VALUES (?,?)',(p['device_id'],hashlib.sha256(token.encode()).hexdigest()))
             if isinstance(body.get('name'),str) and body['name'].strip():
                 d=next(d for d in self.real if d['id']==p['device_id']);d['name']=body['name'].strip()[:40]
@@ -456,6 +514,8 @@ class Engine:
                 self.db.executescript('DELETE FROM events; DELETE FROM reports; DELETE FROM devices;')
                 if body.get('keep_pairing',True) is False:self.db.execute('DELETE FROM credentials')
                 self.pairings.clear()
+                self.live_frames.clear()
+                for times in self.live_attempts.values():times.clear()
                 self.real=[{'id':f'PHONE-{i+1:02}','name':f'真实手机 {i+1:02}','source':'real','type':'phone','status':'pending',
                     'lat':CAMPUS['lat']+(i-1)*.003,'lon':CAMPUS['lon']+.003*i,'location_valid':False,'district':'南岸区',
                     'location':'预留接入位置 · 尚无 GPS','fps':None,'battery':None,'speed':None,'last_seen':None,'preview_url':None} for i in range(3)]
@@ -475,6 +535,7 @@ class Server(ThreadingHTTPServer):
         self.engine = engine
         self.rate_lock = threading.Lock()
         self.upload_gate = threading.BoundedSemaphore(1)
+        self.live_gates = {key:threading.BoundedSemaphore(1) for key in PHONE_IDS}
         self.rates = {}
         super().__init__(address, Handler)
 
@@ -493,7 +554,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header('X-Content-Type-Options','nosniff')
         self.send_header('Referrer-Policy','strict-origin-when-cross-origin')
         self.send_header('X-Frame-Options','SAMEORIGIN')
-        self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'")
+        self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'")
         super().end_headers()
 
     def list_directory(self, path):
@@ -512,9 +573,25 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path=urlsplit(self.path).path
         if path=='/api/v1/health':
-            return self.json_response(200,{'ok':True,'service':'wandervision','version':'2.0.0'})
+            return self.json_response(200,{'ok':True,'service':'wandervision','version':'3.0.0'})
+        live_match=re.fullmatch(r'/api/v1/devices/(PHONE-0[1-3])/live(/frame.jpg)?',path)
+        if live_match:
+            meta,data=self.server.engine.live_image(live_match[1])
+            if not live_match[2]:return self.json_response(200,{'ok':True,**meta})
+            if data is None:return self.json_response(410,{'error':'No fresh LIVE frame',**meta})
+            etag='"live-'+str(meta['frame_id'])+'"'
+            self.send_response(304 if self.headers.get('If-None-Match')==etag else 200)
+            self.send_header('Cache-Control','no-store');self.send_header('ETag',etag)
+            self.send_header('X-WV-Frame-Id',str(meta['frame_id']))
+            if self.headers.get('If-None-Match')==etag:self.end_headers();return
+            self.send_header('Content-Type','image/jpeg');self.send_header('Content-Length',str(len(data)))
+            self.end_headers();self.wfile.write(data);return
         if path=='/api/v1/snapshot':
             return self.json_response(200,self.server.engine.snapshot())
+        if path=='/api/v1/mobile':
+            snapshot=self.server.engine.snapshot()
+            return self.json_response(200,{key:snapshot[key] for key in ['server_time','campus','stats','devices']}|
+                {'events':snapshot['events'][:3]})
         if path=='/api/v1/settings':
             return self.json_response(200,{'ok':True,'campus':CAMPUS,'storage':self.server.engine.storage(),
                 'scenarios':['normal','busy','roadwork','offline','night']})
@@ -548,11 +625,13 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         upload_locked=False
-        if self.limited():
-            return self.json_response(429,{'error':'Rate limit: 120 writes/minute per address'})
+        live_gate=None
         path=urlsplit(self.path).path
+        raw_live=bool(re.fullmatch(r'/api/v1/devices/PHONE-0[1-3]/live',path))
+        if not raw_live and self.limited():
+            return self.json_response(429,{'error':'Rate limit: 120 writes/minute per address'})
         try:
-            match=re.fullmatch(r'/api/v1/devices/(PHONE-0[1-3])/(heartbeat|events|reports)',path)
+            match=re.fullmatch(r'/api/v1/devices/(PHONE-0[1-3])/(heartbeat|events|reports|live|live/stop)',path)
             if match:
                 configured=json.loads(os.environ.get('WV_DEVICE_TOKENS','{}')).get(match[1])
                 with self.server.engine.lock:
@@ -560,6 +639,7 @@ class Handler(SimpleHTTPRequestHandler):
                 if not configured and not paired:
                     return self.json_response(503,{'error':'Device token is not configured on this server'})
                 if not self.server.engine.authorize(match[1],self.headers.get('Authorization','')):
+                    if raw_live and self.limited():raise LiveRateLimit('Too many unauthorized requests')
                     return self.json_response(401,{'error':'Valid per-device Bearer token required'})
             elif path in ['/api/v1/simulation','/api/v1/pairing','/api/v1/maintenance']:
                 origin=self.headers.get('Origin')
@@ -569,6 +649,21 @@ class Handler(SimpleHTTPRequestHandler):
                     return self.json_response(403,{'error':'Cross-site writes rejected'})
             elif path!='/api/v1/pair':
                 return self.json_response(404,{'error':'Unknown API endpoint'})
+            if raw_live:
+                gate=self.server.live_gates[match[1]]
+                if not gate.acquire(blocking=False):raise LiveRateLimit('One LIVE upload per device at a time')
+                live_gate=gate
+                self.server.engine.reserve_live(match[1])
+                length=int(self.headers.get('Content-Length','0'))
+                if length<1 or length>MAX_LIVE_BYTES:return self.json_response(413,{'error':'LIVE body must be 1..262144 bytes'})
+                if self.headers.get_content_type()!='image/jpeg':return self.json_response(415,{'error':'Content-Type image/jpeg required'})
+                data=self.rfile.read(length)
+                if len(data)!=length:raise ValueError('Incomplete LIVE frame')
+                with self.server.engine.lock:
+                    if not self.server.engine.authorize(match[1],self.headers.get('Authorization','')):
+                        return self.json_response(401,{'error':'Device was re-paired during upload'})
+                    result=self.server.engine.receive_live(match[1],data,self.headers.get('X-WV-Test-Data')=='1')
+                return self.json_response(200,result)
             if match and match[2]=='reports':
                 upload_locked=self.server.upload_gate.acquire(blocking=False)
                 if not upload_locked:return self.json_response(429,{'error':'Another photo upload is active; please retry'})
@@ -589,15 +684,19 @@ class Handler(SimpleHTTPRequestHandler):
             elif match[2]=='heartbeat':
                 result=engine.heartbeat(match[1],body)
             elif match[2]=='reports':result=engine.receive_report(match[1],body)
+            elif match[2]=='live/stop':result=engine.stop_live(match[1])
             else:
                 result=engine.ingest(match[1],body)
             self.json_response(200,result)
+        except LiveRateLimit as exc:
+            self.send_response(429);self.send_header('Retry-After','1');self.send_header('Content-Length','0');self.end_headers()
         except (ValueError,TypeError,UnicodeError) as exc:
             self.json_response(400,{'error':str(exc)[:180] or 'Invalid request'})
         except (ConnectionError,TimeoutError):
             self.close_connection=True
         finally:
             if upload_locked:self.server.upload_gate.release()
+            if live_gate is not None:live_gate.release()
 
     def log_message(self,format,*args):
         # Never log body, credentials, query strings or submitted device data.

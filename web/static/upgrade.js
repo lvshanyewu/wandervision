@@ -51,7 +51,7 @@ window.WVUpgrade=(()=>{
       $('#report-grid').innerHTML=reports.length?reports.map(r=>{
         const loc=r.location||{},valid=Number.isFinite(loc.latitude)&&Number.isFinite(loc.longitude);
         const label=loc.mock?'测试定位':loc.status==='stale'?'过期位置':valid?'WGS84':'未定位';
-        return `<button class="report-card" data-report="${esc(r.id)}"><div class="report-thumb"><img src="api/v1/reports/${esc(r.id)}/image" alt="${esc(r.device_id)} 上传的巡检照片" loading="lazy"><span>${r.test_data?'TEST · 联调数据':'REAL · 设备上传'}</span></div><div class="report-card-copy"><h3>${esc(r.device_id)} <small>${localTime(Date.parse(r.received_at)/1000)}</small></h3><p>${r.objects} 个同帧目标 <span>${label} · ${bytes(r.bytes)}</span></p><small>${esc(r.event_id.slice(0,18))}…</small></div></button>`;
+        return `<button class="report-card" data-report="${esc(r.id)}"><div class="report-thumb"><img src="api/v1/reports/${esc(r.id)}/image" alt="${esc(r.device_id)} 上传的巡检照片" loading="lazy"><span>${r.test_data?'TEST · 联调数据':'REAL · 设备上传'}</span></div><div class="report-card-copy"><h3>${esc(r.device_id)} <small>${localTime(Date.parse(r.received_at)/1000)}</small></h3><p>${r.objects} 个同帧目标 <span>${label} · ${bytes(r.bytes)}</span></p><small>${esc(r.model)} · ${esc(r.event_id.slice(0,12))}…</small></div></button>`;
       }).join(''):'<div class="empty report-empty"><span>'+icon('photo')+'</span><h3>下一张巡检照片，从这里开始。</h3><p>在设置里生成配对码，连接 App 后拍照并一键上传。<br>真实设备上传会显示在这里，模拟画面不会写入档案。</p><button class="primary-button" id="empty-connect">连接手机</button></div>';
       $('#empty-connect')?.addEventListener('click',()=>openSettings('connect'));
     }
@@ -64,13 +64,16 @@ window.WVUpgrade=(()=>{
       const location=report.location||{};
       $('#report-info').innerHTML=[['接收状态','服务器已接收 · 原图与原始 JSON 未改动'],['采集时间',report.captured_at||'—'],['定位质量',location.mock?'测试/模拟定位':location.status||'未定位'],['位置',Number.isFinite(location.latitude)?`${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`:'未采集 GPS'],['图像 SHA-256',report.image.sha256]].map(([a,b])=>`<div><span>${a}</span><strong>${esc(b)}</strong></div>`).join('');
       $('#report-json').textContent=JSON.stringify(report,null,2);$('#report-dialog').showModal();
+      const inference=report.inference||{},roadLabels={longitudinal_crack:'纵向裂缝',transverse_crack:'横向裂缝',alligator_crack:'龟裂',pothole:'坑洞'};
+      const detections=(Array.isArray(inference.detections)?inference.detections:[]).filter(d=>d&&typeof d.label==='string');
+      $('#report-detections').innerHTML=`<p class="live-note">模型：${esc(inference.model_id||'未提供')} · ${esc(inference.mode||'未提供模式')} · 以报告 label 为准</p>`+
+        (detections.length?detections.slice(0,50).map(d=>`<span class="detection-label">${esc(roadLabels[d.label]||d.label.slice(0,80))}${Number.isFinite(d.confidence)?` <b>${Math.round(d.confidence*100)}%</b>`:''}</span>`).join(''):'<p class="live-note">此帧没有上报检测目标。</p>');
     }catch(e){toast(e.message);}
   }
   function openPreview(){
     const d=state.snapshot?.devices.find(d=>d.id===state.selected);if(!d)return;
     if(d.source==='real'){
-      const report=state.snapshot.reports.find(r=>r.device_id===d.id);
-      if(report)openReport(report.id);else openSettings('connect');return;
+      window.WVLive.open(d.id);return;
     }
     $('#scene-title').textContent=d.name+' · '+d.id;$('#scene-device').textContent=d.id+' · SIM / 程序合成';
     $('#scene-weather').value=state.snapshot.simulation.scenario==='night'?'night':'day';

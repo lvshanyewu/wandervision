@@ -166,6 +166,7 @@ function renderDetail(){
   $('#real-preview').hidden=!latest||d.source!=='real';
   if(latest&&d.source==='real'){const src='api/v1/reports/'+latest.id+'/image';if($('#real-preview').getAttribute('src')!==src)$('#real-preview').src=src;}
   $('#preview-canvas').hidden=!$('#real-preview').hidden;
+  window.WVLive?.select(d);
   $('#detail-location').textContent=d.location_valid?`${d.location} · ${d.lat.toFixed(4)}, ${d.lon.toFixed(4)}`:'预留地图位置 · 尚未收到真实 GPS';
   const age=d.last_seen?Math.max(0,Math.round(Date.parse(state.snapshot.server_time)/1000-d.last_seen)):null;
   $('#detail-metrics').innerHTML=[['帧率',d.status==='online'&&d.fps!==null?`${d.fps} FPS`:'—'],['电量',d.battery!==null?`${Math.round(d.battery)}%`:'—'],['速度',d.status==='online'&&d.speed!==null?`${d.speed} km/h`:'—'],['最近心跳',age!==null?`${age}s 前`:'未接入']].map(([label,value])=>`<div>${label}<strong>${value}</strong></div>`).join('');
