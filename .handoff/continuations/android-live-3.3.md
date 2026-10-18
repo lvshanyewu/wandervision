@@ -4,9 +4,10 @@ type: "continuation"
 id: "android-live-3.3"
 title: "3.3 实时取景传输、手机仪表盘与路害模型"
 module_id: "android"
-status: "open"
-next_step: "提交并发布已校验的3.3.0 APK；真机连续流/路害效果交用户验收"
-updated_at: "2026-10-18T10:11:56+08:00"
+status: "done"
+next_step: "用户从v3.3.0 Release安装，在device-validation-3.3记录真机结果；最终长流连续帧率未验收"
+updated_at: "2026-10-18T10:14:12+08:00"
+external_checks: [{"checked_at": "2026-10-18T02:15:00Z", "service": "GitHub Releases", "status": "published", "evidence": "https://github.com/lvshanyewu/wandervision/releases/tag/v3.3.0；wandervision-3.3.0-arm64.apk与SHA256SUMS-3.3.0.txt已上传；source dd067ed；APK SHA256483a59306c54143214a3f2002df8a1c2d778e6ecb5f76c5f369bccfa8cf4795d"}]
 ---
 
 ## 范围与收尾
