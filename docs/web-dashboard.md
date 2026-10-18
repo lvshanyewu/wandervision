@@ -95,7 +95,7 @@ python -m py_compile web/server.py web/deploy/deploy.py tools/prepare_web_maps.p
 node --check web/static/app.js
 ```
 
-42 项行为测试覆盖模拟设备/路由连续性、离线/暂停、冷却、统计、SQLite 持久化、真实来源与幂等、字段范围、鉴权、同源控制、安全响应头、目录访问限制，以及定向 Nginx 配置补丁。Node 只用于语法检查，不是运行依赖。浏览器手工冒烟覆盖筛选、地图/设备选择、详情、暂停/继续、说明弹窗、分析视图和 390px 响应式布局。
+47 项行为测试覆盖模拟设备/路由连续性、离线/暂停、冷却、统计、SQLite 持久化、真实来源与幂等、字段范围、鉴权、同源控制、安全响应头、目录访问限制，以及定向 Nginx 配置补丁。Node 只用于语法检查，不是运行依赖。浏览器手工冒烟覆盖筛选、地图/设备选择、详情、暂停/继续、说明弹窗、分析视图和 390px 响应式布局。
 
 ## 既有服务器部署
 
@@ -170,7 +170,7 @@ SQLite新增credentials（最多3设备散列）、reports（原始metadata和JP
 
 ### V2 检查
 
-42项自动测试包括真实HTTP配对→无GPS心跳→超过16KiB的JPEG上传→重复上传→原图字节读回→清库404与实际空间回收，以及配对持久化/expiry、7天/数量配额和旧基线。浏览器检查设置、预设、图片/原始JSON、隔离测试库清理、循环场景与响应式。Android构建/实机边界由App对话记录，不能用Web测试代替APK检查。
+47项自动测试包括真实HTTP配对→无GPS心跳→超过16KiB的JPEG上传→重复上传→原图字节读回→清库404与实际空间回收，以及配对持久化/expiry、7天/数量配额和旧基线。浏览器检查设置、预设、图片/原始JSON、隔离测试库清理、循环场景与响应式。Android构建/实机边界由App对话记录，不能用Web测试代替APK检查。
 
 
 ## LIVE 与手机仪表盘（2026-10-18）
@@ -182,3 +182,5 @@ App3.3配对后手动开启LIVE，设备端完成检测框绘制与JPEG压缩，
 最新帧2秒无更新即移除显示，5秒后由模拟时钟线程释放内存，即使没有观众或暂停模拟也执行。手动关闭/后台由App尽力发送stop；重配、清库清除帧。LIVE为设备通道，模拟器/模拟输入标TEST LIVE；与SIM合成循环明确区分。浏览器顺序读取最新JPEG并用ETag避免重复传输，观看上限10FPS、隐藏页面停止轮询，不积压历史帧，Blob URL及时释放。
 
 精确接口与客户端限制见[android-live-contract.md](android-live-contract.md)。新HTTP测试覆盖设备鉴权隔离、15FPS窗口、超过120次/分钟仍可持续上传、原图/ETag/410、短TTL物理释放、停止/重配/清库、大小与并发限制、无SQL写入/无假GPS、简版页面，以及RDD原始label/class_id不按COCO重解释。
+
+跨境逐帧POST实际约1.7–1.8FPS，故追加 `/live/stream` 长连接：HTTP chunked中依次发送4字节BE长度/JPEG，零长度结束；无逐帧ACK，仅最新帧。每会话60秒/16MiB，App提前轮换，UUID stream_id用于确认本轮接收；stop/重配/清库epoch拒绝旧会话晚帧。仅三条精确Nginx stream路由关闭请求缓冲和启用HTTP1.1，其他服务/API不变。参照[Nginx官方请求缓冲说明](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_request_buffering)。新增chunk分片/截断/总量、上传未结束即可GET图片、会话ID、停止后晚帧拒绝等测试，共47项。

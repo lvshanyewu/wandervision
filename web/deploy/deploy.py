@@ -30,8 +30,22 @@ def sha(data):
 def patch_config(source,gateway):
     if not re.fullmatch(r'\d{1,3}(\.\d{1,3}){3}',gateway):
         raise ValueError('Invalid Docker gateway')
+    streams='\n'.join(f'''    location = /wandervision/api/v1/devices/{device}/live/stream {{
+        proxy_pass http://{gateway}:{PORT}/api/v1/devices/{device}/live/stream;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_read_timeout 75s;
+        proxy_send_timeout 10s;
+        client_body_timeout 5s;
+        client_max_body_size 16m;
+    }}''' for device in ['PHONE-01','PHONE-02','PHONE-03'])
     block=f'''{BEGIN}
     location = /wandervision {{ return 301 /wandervision/; }}
+{streams}
     location ^~ /wandervision/ {{
         proxy_pass http://{gateway}:{PORT}/;
         proxy_set_header Host $http_host;

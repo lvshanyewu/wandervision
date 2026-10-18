@@ -2,6 +2,7 @@
 import base64
 import http.client
 import hashlib
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -14,6 +15,20 @@ from jpeg_fixture import JPEG_BASE64
 
 JPEG=base64.b64decode(JPEG_BASE64)
 TOKEN='live-test-only-token-123456789'
+STREAM_ID='12345678-1234-4321-8123-123456789abc'
+
+
+class ChunkedTests(unittest.TestCase):
+    def test_bounded_chunk_decoding_handles_splits_extensions_and_end(self):
+        body=b'1;test=1\r\na\r\n2\r\nbc\r\n0\r\n\r\n'
+        reader=app.ChunkedBody(io.BytesIO(body))
+        self.assertEqual(reader.read(2),b'ab');self.assertEqual(reader.read(5),b'c');self.assertEqual(reader.read(1),b'')
+
+    def test_malformed_truncated_and_oversize_chunks_rejected(self):
+        for body in [b'zz\r\n',b'4\r\nab',b'1\r\naXX0\r\n\r\n',b'x'*128,b'0\r\n'+b'x'*256]:
+            with self.subTest(body=body[:12]),self.assertRaises(ValueError):app.ChunkedBody(io.BytesIO(body)).read(8)
+        with patch.object(app,'MAX_STREAM_BYTES',4),self.assertRaises(ValueError):
+            app.ChunkedBody(io.BytesIO(b'5\r\nabcde\r\n0\r\n\r\n')).read(8)
 
 
 class LiveEngineTests(unittest.TestCase):
@@ -98,6 +113,48 @@ class LiveHTTPTests(unittest.TestCase):
         c=http.client.HTTPConnection('127.0.0.1',self.server.server_port,timeout=3)
         c.request(method,'/api/v1/devices/'+device+'/live'+suffix,body,h)
         r=c.getresponse();result=(r.status,r.read(),dict(r.getheaders()));c.close();return result
+
+    def stream(self,chunks,stream_id=STREAM_ID,content_type='application/x-wandervision-live'):
+        c=http.client.HTTPConnection('127.0.0.1',self.server.server_port,timeout=4)
+        headers={'Content-Type':content_type,'Authorization':'Bearer '+TOKEN,'X-WV-Test-Data':'1','X-WV-Stream-Id':stream_id}
+        c.request('POST','/api/v1/devices/PHONE-01/live/stream',chunks,headers,encode_chunked=True)
+        r=c.getresponse();result=(r.status,r.read());c.close();return result
+
+    def test_stream_is_visible_before_request_finishes_and_echoes_frame_session(self):
+        finish=threading.Event();result=[];packet=len(JPEG).to_bytes(4,'big')+JPEG
+        def chunks():
+            for _ in range(3):
+                self.now+=.08;yield packet[:2];yield packet[2:];time.sleep(.01)
+            finish.wait(3);yield bytes(4)
+        thread=threading.Thread(target=lambda:result.append(self.stream(chunks())),daemon=True);thread.start()
+        try:
+            end=time.monotonic()+2
+            while self.engine.live_meta('PHONE-01')['frame_id']!=3 and time.monotonic()<end:time.sleep(.01)
+            self.assertTrue(thread.is_alive());self.assertEqual(result,[])
+            meta=json.loads(self.request()[1]);self.assertEqual(meta['frame_id'],3);self.assertEqual(meta['stream_id'],STREAM_ID)
+            self.assertEqual(self.request(suffix='/frame.jpg')[1],JPEG)
+        finally:finish.set();thread.join(4)
+        self.assertEqual(result[0][0],200);self.assertEqual(json.loads(result[0][1])['frames'],3)
+
+    def test_stop_epoch_rejects_late_stream_frames(self):
+        finish=threading.Event();result=[];packet=len(JPEG).to_bytes(4,'big')+JPEG
+        def chunks():
+            yield packet;finish.wait(3);yield packet;yield bytes(4)
+        thread=threading.Thread(target=lambda:result.append(self.stream(chunks())),daemon=True);thread.start()
+        try:
+            end=time.monotonic()+2
+            while self.engine.live_meta('PHONE-01')['frame_id'] is None and time.monotonic()<end:time.sleep(.01)
+            self.assertEqual(self.request('POST','/stop',b'{}',TOKEN,{'Content-Type':'application/json'})[0],200)
+        finally:finish.set();thread.join(4)
+        self.assertEqual(result[0][0],400)
+        self.assertEqual(self.engine.live_meta('PHONE-01')['state'],'stopped');self.assertIsNone(self.engine.live_image('PHONE-01')[1])
+
+    def test_stream_requires_type_uuid_and_rejects_invalid_lengths(self):
+        self.assertEqual(self.stream([bytes(4)],stream_id='bad')[0],400)
+        self.assertEqual(self.stream([bytes(4)],content_type='image/jpeg')[0],415)
+        self.assertEqual(self.stream([(262145).to_bytes(4,'big')])[0],400)
+        self.assertEqual(self.stream([b'\0\0'])[0],400)
+        self.assertEqual(self.stream([bytes(4)+b'extra'])[0],400)
 
     def test_upload_auth_isolation_and_etag_original_bytes(self):
         self.assertEqual(self.request('POST',body=JPEG)[0],401)

@@ -18,6 +18,11 @@ location /api/ { proxy_pass http://backend; }
         self.assertEqual(result.count(deploy.BEGIN),1)
         self.assertIn('proxy_pass http://172.19.0.1:5065/;',result)
         self.assertIn('location /api/ { proxy_pass http://backend; }',result)
+        self.assertEqual(result.count('proxy_request_buffering off;'),3)
+        for device in ['PHONE-01','PHONE-02','PHONE-03']:
+            self.assertIn(f'location = /wandervision/api/v1/devices/{device}/live/stream',result)
+        self.assertIn('client_max_body_size 6m;',result)
+        self.assertEqual(result.count('client_max_body_size 16m;'),3)
 
     def test_repeatable_and_can_update_gateway(self):
         first=deploy.patch_config('server { server_name lvshanyewu.site; }','172.19.0.1')

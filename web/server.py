@@ -30,11 +30,44 @@ MAX_IMAGE = 4 * 1024 * 1024
 MAX_REPORTS = 50
 MAX_REPORT_BYTES = 96 * 1024 * 1024
 MAX_LIVE_BYTES = 256 * 1024
+MAX_STREAM_BYTES = 16 * 1024 * 1024
 PHONE_IDS = ('PHONE-01', 'PHONE-02', 'PHONE-03')
 
 
 class LiveRateLimit(ValueError):
     pass
+
+
+class ChunkedBody:
+    """Bounded HTTP/1.1 chunk decoding; no request buffering or unbounded lines."""
+    def __init__(self, stream):
+        self.stream=stream;self.left=0;self.crlf=False;self.done=False;self.total=0
+
+    def read(self, size):
+        result=bytearray()
+        while len(result)<size and not self.done:
+            if self.crlf:
+                if self.stream.read(2)!=b'\r\n':raise ValueError('Invalid chunk terminator')
+                self.crlf=False
+            if self.left==0:
+                line=self.stream.readline(128)
+                if not line.endswith(b'\r\n'):raise ValueError('Invalid chunk header')
+                number=line[:-2].split(b';',1)[0]
+                if not re.fullmatch(b'[a-fA-F0-9]{1,8}',number):raise ValueError('Invalid chunk length')
+                self.left=int(number,16)
+                if self.left>MAX_STREAM_BYTES or self.total+self.left>MAX_STREAM_BYTES:raise ValueError('LIVE stream exceeds 16 MiB')
+                if self.left==0:
+                    used=0
+                    while True:
+                        trailer=self.stream.readline(256);used+=len(trailer)
+                        if not trailer.endswith(b'\r\n') or used>1024:raise ValueError('Invalid chunk trailers')
+                        if trailer==b'\r\n':break
+                    self.done=True;break
+            data=self.stream.read(min(size-len(result),self.left))
+            if not data:raise ValueError('Incomplete chunked stream')
+            self.left-=len(data);self.total+=len(data);result.extend(data)
+            if not self.left:self.crlf=True
+        return bytes(result)
 
 
 def jpeg_size(data):
@@ -111,6 +144,7 @@ class Engine:
         self.live_frames = {}
         self.live_attempts = {key: deque(maxlen=15) for key in PHONE_IDS}
         self.live_sequence = 0
+        self.live_epochs = {key:0 for key in PHONE_IDS}
         self.pair_attempts = deque(maxlen=100)
         self.last_prune = self.clock()
         self.routes = json.loads((HERE / 'static/data/routes.json').read_text(encoding='utf-8'))
@@ -353,31 +387,32 @@ class Engine:
             if len(times)>=15:raise LiveRateLimit('LIVE limit: 15 uploads/second per device')
             times.append(now)
 
-    def receive_live(self, device_id, data, test_data=False):
+    def receive_live(self, device_id, data, test_data=False, epoch=None, stream_id=None):
         if not data or len(data)>MAX_LIVE_BYTES:raise ValueError('LIVE JPEG exceeds 256 KiB')
         width,height=jpeg_size(data)
         if max(width,height)>1280 or width*height>921600:raise ValueError('LIVE JPEG exceeds 1280px edge / 921600 pixels')
         with self.lock:
+            if epoch is not None and self.live_epochs[device_id]!=epoch:raise ValueError('LIVE session stopped or replaced')
             now=self.clock();old=self.live_frames.get(device_id,{})
             times=deque((t for t in old.get('times',[]) if now-t<2),maxlen=30)
             times.append(now);self.live_sequence+=1
             self.live_frames[device_id]={'image':data,'frame_id':self.live_sequence,'received':now,
-                'width':width,'height':height,'bytes':len(data),'test_data':bool(test_data),'times':times,'state':'live'}
+                'width':width,'height':height,'bytes':len(data),'test_data':bool(test_data),'times':times,'state':'live','stream_id':stream_id}
             return {'ok':True,**self.live_meta(device_id)}
 
     def live_meta(self, device_id):
         with self.lock:
             frame=self.live_frames.get(device_id)
             if not frame:return {'device_id':device_id,'state':'idle','frame_id':None,'received_at':None,
-                'age_ms':None,'fps':0,'width':0,'height':0,'bytes':0,'test_data':False,'max_fps':15}
+                'age_ms':None,'fps':0,'width':0,'height':0,'bytes':0,'test_data':False,'max_fps':15,'stream_id':None}
             age=max(0,self.clock()-frame['received']);state=frame['state']
             if state!='stopped':state='live' if age<=2 else 'stale' if age<5 else 'expired'
             if age>=5 or state=='stopped':frame.pop('image',None)
             times=[t for t in frame.get('times',[]) if self.clock()-t<2]
-            fps=round((len(times)-1)/(times[-1]-times[0]),1) if state=='live' and len(times)>1 and times[-1]>times[0] else 0
+            fps=min(15,round((len(times)-1)/max(1,times[-1]-times[0]),1)) if state=='live' and len(times)>1 else 0
             return {'device_id':device_id,'state':state,'frame_id':frame['frame_id'],'received_at':iso(frame['received']),
                 'age_ms':round(age*1000),'fps':fps,'max_fps':15,
-                **{k:frame[k] for k in ['width','height','bytes','test_data']}}
+                'stream_id':frame.get('stream_id'),**{k:frame[k] for k in ['width','height','bytes','test_data']}}
 
     def live_image(self, device_id):
         with self.lock:
@@ -386,6 +421,7 @@ class Engine:
 
     def stop_live(self, device_id):
         with self.lock:
+            self.live_epochs[device_id]+=1
             frame=self.live_frames.get(device_id)
             if frame:frame.pop('image',None);frame['state']='stopped';frame['times']=deque(maxlen=30)
             else:self.live_frames[device_id]={'state':'stopped','received':self.clock(),'frame_id':None,
@@ -515,6 +551,7 @@ class Engine:
                 if body.get('keep_pairing',True) is False:self.db.execute('DELETE FROM credentials')
                 self.pairings.clear()
                 self.live_frames.clear()
+                for key in PHONE_IDS:self.live_epochs[key]+=1
                 for times in self.live_attempts.values():times.clear()
                 self.real=[{'id':f'PHONE-{i+1:02}','name':f'真实手机 {i+1:02}','source':'real','type':'phone','status':'pending',
                     'lat':CAMPUS['lat']+(i-1)*.003,'lon':CAMPUS['lon']+.003*i,'location_valid':False,'district':'南岸区',
@@ -573,7 +610,7 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path=urlsplit(self.path).path
         if path=='/api/v1/health':
-            return self.json_response(200,{'ok':True,'service':'wandervision','version':'3.0.0'})
+            return self.json_response(200,{'ok':True,'service':'wandervision','version':'3.0.1','live_transport':['jpeg','chunked-jpeg']})
         live_match=re.fullmatch(r'/api/v1/devices/(PHONE-0[1-3])/live(/frame.jpg)?',path)
         if live_match:
             meta,data=self.server.engine.live_image(live_match[1])
@@ -627,11 +664,11 @@ class Handler(SimpleHTTPRequestHandler):
         upload_locked=False
         live_gate=None
         path=urlsplit(self.path).path
-        raw_live=bool(re.fullmatch(r'/api/v1/devices/PHONE-0[1-3]/live',path))
+        raw_live=bool(re.fullmatch(r'/api/v1/devices/PHONE-0[1-3]/live(/stream)?',path))
         if not raw_live and self.limited():
             return self.json_response(429,{'error':'Rate limit: 120 writes/minute per address'})
         try:
-            match=re.fullmatch(r'/api/v1/devices/(PHONE-0[1-3])/(heartbeat|events|reports|live|live/stop)',path)
+            match=re.fullmatch(r'/api/v1/devices/(PHONE-0[1-3])/(heartbeat|events|reports|live|live/stop|live/stream)',path)
             if match:
                 configured=json.loads(os.environ.get('WV_DEVICE_TOKENS','{}')).get(match[1])
                 with self.server.engine.lock:
@@ -653,6 +690,8 @@ class Handler(SimpleHTTPRequestHandler):
                 gate=self.server.live_gates[match[1]]
                 if not gate.acquire(blocking=False):raise LiveRateLimit('One LIVE upload per device at a time')
                 live_gate=gate
+                if match[2]=='live/stream':
+                    return self.live_stream(match[1])
                 self.server.engine.reserve_live(match[1])
                 length=int(self.headers.get('Content-Length','0'))
                 if length<1 or length>MAX_LIVE_BYTES:return self.json_response(413,{'error':'LIVE body must be 1..262144 bytes'})
@@ -697,6 +736,46 @@ class Handler(SimpleHTTPRequestHandler):
         finally:
             if upload_locked:self.server.upload_gate.release()
             if live_gate is not None:live_gate.release()
+
+    def live_stream(self, device_id):
+        if self.headers.get_content_type()!='application/x-wandervision-live':
+            return self.json_response(415,{'error':'Content-Type application/x-wandervision-live required'})
+        if self.headers.get('Transfer-Encoding','').lower()!='chunked' or self.headers.get('Content-Length') is not None:
+            return self.json_response(400,{'error':'Chunked transfer encoding required without Content-Length'})
+        stream_id=self.headers.get('X-WV-Stream-Id','')
+        if not re.fullmatch(r'[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}',stream_id):
+            return self.json_response(400,{'error':'X-WV-Stream-Id UUID required'})
+        self.connection.settimeout(5)
+        engine=self.server.engine;reader=ChunkedBody(self.rfile)
+        with engine.lock:
+            engine.live_epochs[device_id]+=1;epoch=engine.live_epochs[device_id]
+        started=time.monotonic();accepted=dropped=consecutive=0;reason='finished'
+        while True:
+            if time.monotonic()-started>=60:reason='session_limit';break
+            header=reader.read(4)
+            if not header:break
+            if len(header)!=4:raise ValueError('Incomplete LIVE frame length')
+            size=int.from_bytes(header,'big')
+            if size==0:
+                if reader.read(1):raise ValueError('Bytes after LIVE end marker')
+                break
+            if size>MAX_LIVE_BYTES:raise ValueError('LIVE frame exceeds 262144 bytes')
+            data=reader.read(size)
+            if len(data)!=size:raise ValueError('Incomplete LIVE frame')
+            with engine.lock:
+                if engine.live_epochs[device_id]!=epoch:raise ValueError('LIVE session stopped or replaced')
+                if not engine.authorize(device_id,self.headers.get('Authorization','')):
+                    return self.json_response(401,{'error':'Device re-paired during LIVE'})
+                try:engine.reserve_live(device_id)
+                except LiveRateLimit:
+                    dropped+=1;consecutive+=1
+                    if consecutive>30:raise LiveRateLimit('Excessive LIVE stream rate')
+                    continue
+                consecutive=0
+                engine.receive_live(device_id,data,self.headers.get('X-WV-Test-Data')=='1',epoch,stream_id)
+                accepted+=1
+        return self.json_response(200,{'ok':True,'device_id':device_id,'frames':accepted,'dropped':dropped,
+            'reason':reason,'max_session_seconds':60,'max_stream_bytes':MAX_STREAM_BYTES,**engine.live_meta(device_id)})
 
     def log_message(self,format,*args):
         # Never log body, credentials, query strings or submitted device data.

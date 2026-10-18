@@ -2,7 +2,17 @@
 
 2026-10-18。固定基址 `https://lvshanyewu.site/wandervision`，沿用配对所得设备 Bearer。实时通道与巡检报告分开；帧仅在内存中，最多三台手机各一帧，不写 SQLite 或磁盘。
 
-## App 上传 / 停止
+## 推荐：连续长连接上传（跨境网络）
+
+`POST /api/v1/devices/PHONE-01/live/stream`，沿用Bearer；`Content-Type: application/x-wandervision-live`；必填 `X-WV-Stream-Id: <UUID>`（该轮LIVE开关的随机UUID）；GET状态/快照live的stream_id回显最新帧所属会话，仅匹配本次UUID且state=live才确认本机在播。HTTP `Transfer-Encoding: chunked`，**不得设置 Content-Length**。App `HttpURLConnection.setChunkedStreamingMode(8192)`，每帧写4字节unsigned big-endian长度，再写完整JPEG并flush。检测框已经在JPEG中。测试输入仍发 `X-WV-Test-Data: 1`。
+
+每帧大小/尺寸及15FPS上限同下方单帧接口。单会话 **60秒或16MiB总body** 上限；App应在 **55秒或14MiB** 主动轮换，写4字节零结束标记后close输出流（让HTTP发终止chunk），再读200 JSON回执。回执含frames、dropped、reason及最新LIVE元数据。长连接内没有逐帧HTTP ACK，不等回执再取下一帧；自然TCP背压下阻塞写时不再取帧，只保留当前一帧。建议640长边JPEG55、目标12.5FPS。
+
+同一设备仅允许一个写通道，其他请求429/Retry-After1；旧流断开后最长5秒读超时释放占用。超频帧丢弃不积压，连续超频超过30帧将断开连接。单会话/传输异常可在LIVE仍由用户启用且App在前台时短暂退避重连；手动关闭/后台/解除配对不得重连。停止时先禁止采样并disconnect，再尽力发 `/live/stop`。服务端epoch在stop/重配/清库时递增，旧会话后到帧不能恢复直播；每帧重新验证token。正常会话轮换不主动清最后一帧，TTL继续生效。每次网络读空闲超过5秒关闭连接；最长会话计时60秒，阻塞读额外最多5秒。
+
+Nginx只针对三条精确stream路由关闭request/response buffering、启用proxy HTTP1.1、16MiB body与75秒响应超时；其他API保留原6MiB限制。需要验证公网代理能在连接未结束时持续收到帧，不能仅凭最终200宣称实时。
+
+## 兼容：单帧上传 / 停止
 
 - `POST /api/v1/devices/PHONE-01/live`（支持 PHONE-01..03）
 - `Authorization: Bearer <配对令牌>`；`Content-Type: image/jpeg`；必须 `Content-Length`，原始 JPEG 二进制，不是 JSON/Base64/multipart。
