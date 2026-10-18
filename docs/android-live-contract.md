@@ -28,6 +28,7 @@ Nginx只针对三条精确stream路由关闭request/response buffering、启用p
 - `GET /api/v1/devices/PHONE-01/live`：`{ok,device_id,state,frame_id,received_at,age_ms,fps,width,height,bytes,test_data,max_fps}`。
 - `state`: `idle`尚未开始；`live`最近2秒收到帧；`stale`超过2秒但未到5秒；`expired`超过5秒（JPEG已丢弃）；`stopped`主动停止。过期元数据仅保留用于说明状态。
 - `GET /api/v1/devices/PHONE-01/live/frame.jpg`：仅LIVE时200 image/jpeg、no-store，`ETag`及`X-WV-Frame-Id`；`If-None-Match`相同时304。非LIVE返回410 JSON，网页应移除旧图，不将冻结图片冒充直播。
+- 推荐观看 `GET /api/v1/devices/PHONE-01/live/mjpeg`：原生 `multipart/x-mixed-replace; boundary=wv-frame`，JPEG原样发送，不转码。全局最多6个观看连接、每连接60秒、无新帧不重复发，断流/stop关闭；超额429可回退单帧轮询。响应no-store及X-Accel-Buffering:no。浏览器55秒轮换，隐藏时断开，用独立meta轮询与保守过期定时移除冻结帧；不依赖img载入事件当作持续接收证明。
 - snapshot 的真实device附带 `live` 相同元数据，不包含JPEG/Base64。帧上传不代替heartbeat，不修改GPS、模拟事件或巡检档案。
 - `GET /api/v1/mobile` 为手机端精简快照，只有 server_time/campus/stats/devices 和最近3条 events，不传完整照片档案/趋势。
 - 手机页面固定 **`/mobile/?device=PHONE-01`**，同源公开只读，不在URL带token。只显示核心计数、校园地图、设备状态和所选手机LIVE；可内嵌WebView，也可系统浏览器打开。无需登录或WebView JS桥接，不请求网页GPS/相机权限。

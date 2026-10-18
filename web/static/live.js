@@ -1,19 +1,28 @@
 'use strict';
-/* One frame request at a time, 10 FPS viewing ceiling; no history or token URLs. */
+/* Native MJPEG viewing, bounded latest-JPEG fallback; no history or token URLs. */
 window.WVLive=(()=>{
-  const labels={idle:'尚未开启 LIVE',live:'LIVE',stale:'画面已过期',expired:'直播已断流',stopped:'直播已停止',unavailable:'连接暂不可用',paused:'预览已暂停'};
+  const labels={idle:'尚未开启 LIVE',live:'LIVE',loading:'正在接收实时画面',stale:'画面已过期',expired:'直播已断流',stopped:'直播已停止',unavailable:'连接暂不可用',paused:'预览已暂停'};
   class Viewer{
     constructor({image,onState,visible=()=>true,base='api/v1/'}){
-      Object.assign(this,{image,onState,visible,base,device:null,generation:0,etag:'',url:null,meta:null,lastMeta:0});
+      Object.assign(this,{image,onState,visible,base,device:null,generation:0,etag:'',url:null,meta:null,lastMeta:0,streaming:false,retryMjpegAt:0});
       this.timer=setTimeout(()=>this.tick(),0);
     }
     setDevice(id){
       id=/^PHONE-0[1-3]$/.test(id)?id:null;
       if(id===this.device)return;
-      this.device=id;this.generation++;this.abort?.abort();this.etag='';this.meta=null;this.lastMeta=0;this.clear();
+      this.device=id;this.generation++;this.abort?.abort();this.etag='';this.meta=null;this.lastMeta=0;this.retryMjpegAt=0;this.clear();
     }
-    clear(){clearTimeout(this.frameTimer);this.image.hidden=true;this.image.removeAttribute('src');if(this.url){URL.revokeObjectURL(this.url);this.url=null;}}
-    state(meta){this.meta=meta;if(meta.state!=='live'){this.clear();this.etag='';}this.onState?.(meta,labels[meta.state]||'等待直播');}
+    clear(){clearTimeout(this.frameTimer);clearTimeout(this.freshTimer);this.streaming=false;this.image.onload=null;this.image.onerror=null;this.image.hidden=true;this.image.removeAttribute('src');if(this.url){URL.revokeObjectURL(this.url);this.url=null;}}
+    state(meta,roundtrip=0){
+      this.meta=meta;
+      if(meta.state!=='live'){this.clear();this.etag='';}
+      else{
+        clearTimeout(this.freshTimer);
+        this.freshTimer=setTimeout(()=>{this.lastMeta=0;this.state({...this.meta,state:'stale',fps:0});},Math.max(0,2000-(meta.age_ms||0)-roundtrip));
+      }
+      const display=meta.state==='live'&&this.image.hidden?{...meta,state:'loading'}:meta;
+      this.onState?.(display,labels[display.state]||'等待直播');
+    }
     async tick(){
       const start=performance.now(),generation=this.generation,id=this.device;
       let delay=1000;
@@ -26,11 +35,22 @@ window.WVLive=(()=>{
         this.abort=new AbortController();const timeout=setTimeout(()=>this.abort?.abort(),4500);
         try{
           const endpoint=this.base+'devices/'+id+'/live';
-          if(!this.meta||start-this.lastMeta>=800){
-            const r=await fetch(endpoint,{cache:'no-store',signal:this.abort.signal});if(!r.ok)throw new Error('LIVE status');
-            const meta=await r.json();if(generation!==this.generation)return;this.lastMeta=performance.now();this.state(meta);
+          if(!this.meta||start-this.lastMeta>=500){
+            const began=performance.now(),r=await fetch(endpoint,{cache:'no-store',signal:this.abort.signal});if(!r.ok)throw new Error('LIVE status');
+            const meta=await r.json();if(generation!==this.generation)return;this.lastMeta=performance.now();this.state(meta,this.lastMeta-began);
           }
           if(this.meta?.state!=='live')return;
+          if(this.streaming&&performance.now()>=this.streamDeadline){this.clear();this.lastMeta=0;delay=200;return;}
+          if(this.streaming){
+            if(this.image.naturalWidth>0){this.image.hidden=false;this.onState?.(this.meta,labels.live);}
+            delay=250;return;
+          }
+          if(performance.now()>=this.retryMjpegAt){
+            if(this.url){URL.revokeObjectURL(this.url);this.url=null;}
+            this.streaming=true;this.streamDeadline=performance.now()+55000;this.image.hidden=true;
+            this.image.onerror=()=>{if(generation===this.generation&&this.streaming){this.state({...this.meta,state:'unavailable',fps:0});this.lastMeta=0;this.retryMjpegAt=performance.now()+10000;}};
+            this.image.src=endpoint+'/mjpeg?view='+Date.now();delay=250;return;
+          }
           delay=100;
           const r=await fetch(endpoint+'/frame.jpg',{cache:'no-store',headers:this.etag?{'If-None-Match':this.etag}:{},signal:this.abort.signal});
           if(generation!==this.generation)return;
@@ -42,6 +62,7 @@ window.WVLive=(()=>{
           this.image.src=url;this.image.hidden=false;
           try{await this.image.decode();}finally{if(old)URL.revokeObjectURL(old);}
           if(generation!==this.generation)return;
+          this.onState?.(this.meta,labels.live);
           clearTimeout(this.frameTimer);
           this.frameTimer=setTimeout(()=>{this.lastMeta=0;this.state({...this.meta,state:'stale',fps:0});},2000);
         }finally{clearTimeout(timeout);}

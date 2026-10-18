@@ -196,5 +196,27 @@ class LiveHTTPTests(unittest.TestCase):
         self.assertEqual(len(d['devices']),13);self.assertLessEqual(len(d['events']),3)
         self.assertNotIn('reports',d);self.assertNotIn('trend',d)
 
+    def test_mjpeg_original_frame_and_stop_ends_bounded_stream(self):
+        self.engine.receive_live('PHONE-01',JPEG,True)
+        c=http.client.HTTPConnection('127.0.0.1',self.server.server_port,timeout=3)
+        c.request('GET','/api/v1/devices/PHONE-01/live/mjpeg');r=c.getresponse()
+        self.assertEqual(r.status,200);self.assertEqual(r.getheader('X-Accel-Buffering'),'no')
+        self.assertEqual(r.readline(),b'--wv-frame\r\n')
+        while r.readline()!=b'\r\n':pass
+        self.assertEqual(r.read(len(JPEG)),JPEG)
+        self.engine.stop_live('PHONE-01')
+        self.assertIn(b'--wv-frame--',r.read());c.close()
+        slots=[]
+        while self.server.viewer_gate.acquire(blocking=False):slots.append(1)
+        try:self.assertEqual(self.request(suffix='/mjpeg')[0],410)
+        finally:
+            for _ in slots:self.server.viewer_gate.release()
+        self.engine.receive_live('PHONE-01',JPEG)
+        slots=[]
+        while self.server.viewer_gate.acquire(blocking=False):slots.append(1)
+        try:self.assertEqual(self.request(suffix='/mjpeg')[0],429)
+        finally:
+            for _ in slots:self.server.viewer_gate.release()
+
 
 if __name__=='__main__':unittest.main()

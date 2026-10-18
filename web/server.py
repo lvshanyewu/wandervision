@@ -573,6 +573,7 @@ class Server(ThreadingHTTPServer):
         self.rate_lock = threading.Lock()
         self.upload_gate = threading.BoundedSemaphore(1)
         self.live_gates = {key:threading.BoundedSemaphore(1) for key in PHONE_IDS}
+        self.viewer_gate = threading.BoundedSemaphore(6)
         self.rates = {}
         super().__init__(address, Handler)
 
@@ -611,11 +612,12 @@ class Handler(SimpleHTTPRequestHandler):
         path=urlsplit(self.path).path
         if path=='/api/v1/health':
             return self.json_response(200,{'ok':True,'service':'wandervision','version':'3.0.1','live_transport':['jpeg','chunked-jpeg']})
-        live_match=re.fullmatch(r'/api/v1/devices/(PHONE-0[1-3])/live(/frame.jpg)?',path)
+        live_match=re.fullmatch(r'/api/v1/devices/(PHONE-0[1-3])/live(/frame.jpg|/mjpeg)?',path)
         if live_match:
             meta,data=self.server.engine.live_image(live_match[1])
             if not live_match[2]:return self.json_response(200,{'ok':True,**meta})
             if data is None:return self.json_response(410,{'error':'No fresh LIVE frame',**meta})
+            if live_match[2]=='/mjpeg':return self.live_mjpeg(live_match[1])
             etag='"live-'+str(meta['frame_id'])+'"'
             self.send_response(304 if self.headers.get('If-None-Match')==etag else 200)
             self.send_header('Cache-Control','no-store');self.send_header('ETag',etag)
@@ -659,6 +661,27 @@ class Handler(SimpleHTTPRequestHandler):
                 start,count=now,0
             self.server.rates[key]=(start,count+1)
             return count>=120
+
+    def live_mjpeg(self, device_id):
+        if not self.server.viewer_gate.acquire(blocking=False):
+            return self.json_response(429,{'error':'LIVE viewer capacity reached; use frame.jpg polling'})
+        try:
+            self.connection.settimeout(5)
+            self.send_response(200)
+            self.send_header('Content-Type','multipart/x-mixed-replace; boundary=wv-frame')
+            self.send_header('Cache-Control','no-store');self.send_header('X-Accel-Buffering','no')
+            self.end_headers();started=time.monotonic();last=None
+            while time.monotonic()-started<60:
+                meta,data=self.server.engine.live_image(device_id)
+                if data is None:break
+                if meta['frame_id']!=last:
+                    last=meta['frame_id']
+                    header=f'--wv-frame\r\nContent-Type: image/jpeg\r\nContent-Length: {len(data)}\r\nX-WV-Frame-Id: {last}\r\n\r\n'.encode()
+                    self.wfile.write(header);self.wfile.write(data);self.wfile.write(b'\r\n');self.wfile.flush()
+                time.sleep(.05)
+            self.wfile.write(b'--wv-frame--\r\n')
+        except (OSError,TimeoutError):pass
+        finally:self.server.viewer_gate.release()
 
     def do_POST(self):
         upload_locked=False
