@@ -4,9 +4,9 @@ type: "continuation"
 id: "device-validation-3.1"
 title: "等待小米13反馈：3.1定位与巡检照片"
 module_id: "android"
-status: "open"
-next_step: "安装3.1.0覆盖升级，反馈定位授权/室外首次定位、横竖屏照片与检测框、JSON导出、耗电和持续稳定性。"
-updated_at: "2026-10-17T20:20:25+08:00"
+status: "done"
+next_step: "反馈转到device-validation-3.2；因版本替代结束本条，不代表3.1收到真机全项通过反馈。"
+updated_at: "2026-10-17T21:52:40+08:00"
 ---
 
 # 待验收
