@@ -27,3 +27,4 @@ for name, url, checksum in DEPS:
 
 import runpy
 runpy.run_path(str(Path(__file__).with_name('prepare_models.py')), run_name='__main__')
+runpy.run_path(str(Path(__file__).with_name('prepare_experiments.py')), run_name='__main__')

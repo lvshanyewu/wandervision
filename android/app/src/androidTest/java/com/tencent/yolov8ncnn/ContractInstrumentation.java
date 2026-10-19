@@ -63,7 +63,13 @@ public final class ContractInstrumentation extends Instrumentation {
         test(()->{check(ModelCatalog.labels(0).length==80&&ModelCatalog.labels(3).length==4,"model class separation");check(ModelCatalog.labels(2)[3].equals("pothole")&&ModelCatalog.IDS[3].equals("rdd2022-yolov8s"),"road model identity");});
         test(()->{ByteArrayOutputStream bytes=new ByteArrayOutputStream();DataOutputStream out=new DataOutputStream(bytes);byte[] liveJpeg={(byte)255,(byte)216,4,5,(byte)255,(byte)217};MonitorApi.writeLiveFrame(out,liveJpeg);out.writeInt(0);DataInputStream in=new DataInputStream(new ByteArrayInputStream(bytes.toByteArray()));check(in.readInt()==6,"big-endian JPEG length");byte[] read=new byte[6];in.readFully(read);check(Arrays.equals(read,liveJpeg)&&in.readInt()==0&&in.read()==-1,"framing and terminator");rejected(()->MonitorApi.writeLiveFrame(out,new byte[262145]));rejected(()->MonitorApi.writeLiveFrame(out,new byte[0]));});
         YOLOv8Ncnn detector=new YOLOv8Ncnn();
-        for(int model=0;model<4;model++)for(int input=0;input<3;input++){
+        test(()->check(detector.smokeRules(),"rule dwell/wrong-way/normal/crossing/disable sequences"));
+        test(()->{int[] pixels=new int[160*48];Arrays.fill(pixels,0xff808080);String[] values=detector.readPlateText(getTargetContext().getAssets(),pixels,160,48,new float[]{0,.95f,0,0,1,1});check(values!=null&&values.length==3,"OCR model CPU shape + CTC smoke");check(Double.isFinite(Double.parseDouble(values[2])),"finite OCR confidence");});
+        test(()->{LocationTracker.Fix fixedLocation=new LocationTracker.Fix(false,false,false,"off",null);for(int model=0;model<ModelCatalog.COUNT;model++){
+            int label=ModelCatalog.labels(model).length-1;FrameCapture frame=new FrameCapture(new int[64],8,8,new float[7],new float[]{label,.9f,.1f,.1f,.2f,.2f},42,android.os.SystemClock.elapsedRealtimeNanos(),"{\"enabled\":false}");
+            try{JSONObject record=InspectionReport.create(frame,model,320,0,1,0,fixedLocation,System.currentTimeMillis(),"test");JSONObject inference=record.getJSONObject("inference");check(inference.getString("model_id").equals(ModelCatalog.IDS[model]),"stable saved model ID");check(inference.getJSONArray("detections").getJSONObject(0).getString("label").equals(ModelCatalog.labels(model)[label]),"model-local labels in record");}finally{frame.image.recycle();}
+        }});
+        for(int model=0;model<ModelCatalog.COUNT;model++)for(int input=0;input<3;input++){
             final int m=model,r=input;test(()->{check(detector.loadModel(getTargetContext().getAssets(),0,r,0,m),"model loads");check(detector.smokeModel(480,320),"rectangular native inference/DFL/draw");});
         }
         result.putString("stream","PASS: "+passed+" contract/model checks (synthetic inputs; no public uploads)\n");result.putInt("passed",passed);finish(-1,result);

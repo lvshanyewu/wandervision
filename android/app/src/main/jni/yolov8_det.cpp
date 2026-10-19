@@ -384,8 +384,7 @@ int YOLOv8_det_coco::draw(cv::Mat& rgb, const std::vector<Object>& objects)
         const cv::Scalar color(255,223,27);
         cv::rectangle(rgb, obj.rect, color, 1, cv::LINE_AA);
         char text[128];
-        static const char* road_names[]={"longitudinal crack","transverse crack","alligator crack","pothole"};
-        const char* name=road?(obj.label>=0&&obj.label<4?road_names[obj.label]:"unknown"):(obj.label>=0&&obj.label<80?class_names[obj.label]:"unknown");
+        const char* name=names.empty()?(obj.label>=0&&obj.label<80?class_names[obj.label]:"unknown"):(obj.label>=0&&obj.label<(int)names.size()?names[obj.label].c_str():"unknown");
         snprintf(text,sizeof(text),"%s  %.0f%%",name,obj.prob*100);
         int base=0;
         const double scale=0.38;

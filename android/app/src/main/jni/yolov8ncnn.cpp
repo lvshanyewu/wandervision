@@ -34,11 +34,13 @@
 #include <benchmark.h>
 
 #include "yolov8.h"
+#include "model_catalog.h"
 
 #include "ndkcamera.h"
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include "experimental_rules.h"
 
 #if __ARM_NEON
 #include <arm_neon.h>
@@ -65,6 +67,9 @@ static int draw_unsupported(cv::Mat& rgb)
 
 static YOLOv8* g_yolov8 = 0;
 static bool g_vehicle_only = false;
+static int g_model_index = 0;
+static ExperimentalRules g_rules;
+static std::string g_rule_snapshot="{\"enabled\":false,\"event_count\":0}",capture_rule_snapshot=g_rule_snapshot;
 static bool g_detection_enabled = true;
 static float g_stats[7] = {0}; // fps, inference ms, visible detections, max confidence, frames, backend, ready
 static double g_last_frame = 0;
@@ -107,6 +112,7 @@ void MyNdkCamera::on_image_render(cv::Mat& rgb) const {
         g_stats[1] = ncnn::get_current_time()-begin;
         if (g_vehicle_only) {
             objects.erase(std::remove_if(objects.begin(), objects.end(), [](const Object& o) {
+                if (g_model_index==4) return o.label<2||o.label>7;
                 return o.label != 1 && o.label != 2 && o.label != 3 && o.label != 5 && o.label != 7;
             }), objects.end());
         }
@@ -115,6 +121,7 @@ void MyNdkCamera::on_image_render(cv::Mat& rgb) const {
         g_yolov8->draw(rgb, objects);
     }
     g_stats[4]++;
+    g_rule_snapshot=g_rules.process(rgb,objects,g_model_index,now);
     ++frame_counter;
     {
         std::lock_guard<std::mutex> live_guard(live_lock);
@@ -128,6 +135,7 @@ void MyNdkCamera::on_image_render(cv::Mat& rgb) const {
     if (capture_wanted) {
         rgb.copyTo(capture_rgb);
         capture_objects = objects;
+        capture_rule_snapshot=g_rule_snapshot;
         std::copy(g_stats, g_stats + 7, capture_stats);
         struct timespec ts;
         clock_gettime(CLOCK_BOOTTIME, &ts);
@@ -141,6 +149,24 @@ void MyNdkCamera::on_image_render(cv::Mat& rgb) const {
 static MyNdkCamera* g_camera = 0;
 
 extern "C" {
+
+JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_smokeRules(JNIEnv*,jobject){
+    cv::Mat image(640,640,CV_8UC3,cv::Scalar(0,0,0));ExperimentalRules rules;std::string value;
+    auto feed=[&](float y,double time){Object o{};o.label=2;o.prob=.95f;o.rect=cv::Rect_<float>(200,y*640,64,64);std::vector<Object> objects={o};return rules.process(image,objects,0,time);};
+    rules.configure(1,0,0,1,1,0,5000);for(int i=0;i<8;i++)value=feed(.4f,i*1000);if(value.find("suspected_roi_dwell")==std::string::npos)return JNI_FALSE;
+    rules.configure(2,0,0,1,1,0,5000);for(int i=0;i<12;i++)value=feed(.1f+i*.03f,i*150);if(value.find("suspected_wrong_way")==std::string::npos)return JNI_FALSE;
+    rules.configure(2,0,0,1,1,0,5000);for(int i=0;i<12;i++)value=feed(.7f-i*.03f,i*150);if(value.find("suspected_wrong_way")!=std::string::npos)return JNI_FALSE;
+    rules.configure(4,0,0,1,1,0,5000);for(int i=0;i<9;i++)value=feed(.2f+i*.05f,i*250);if(value.find("virtual_line_crossing")==std::string::npos)return JNI_FALSE;
+    rules.configure(0,0,0,1,1,0,5000);value=feed(.5f,6000);return value.find("\"enabled\":false")!=std::string::npos?JNI_TRUE:JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_setCaptureProfile(JNIEnv*,jobject,jint profile){if(profile<0||profile>1)return JNI_FALSE;return g_camera->configure_capture(profile?1280:640,profile?720:480)?JNI_TRUE:JNI_FALSE;}
+
+JNIEXPORT void JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_setRules(JNIEnv*,jobject,jint flags,jfloat left,jfloat top,jfloat right,jfloat bottom,jint direction,jlong dwell){
+    if(flags<0||flags>15||direction<0||direction>3||!std::isfinite(left)||!std::isfinite(top)||!std::isfinite(right)||!std::isfinite(bottom)||left<0||top<0||right>1||bottom>1||right-left<.05f||bottom-top<.05f||dwell<2000||dwell>60000)return;
+    ncnn::MutexLockGuard guard(lock);g_rules.configure(flags,left,top,right,bottom,direction,dwell);g_rule_snapshot="{\"enabled\":false,\"event_count\":0}";
+}
+JNIEXPORT jstring JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_getRuleSnapshot(JNIEnv* env,jobject){ncnn::MutexLockGuard guard(lock);return env->NewStringUTF(g_rule_snapshot.c_str());}
 
 JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_smokeModel(JNIEnv*, jobject, jint width, jint height) {
     if(width<32||height<32||width>640||height>640)return JNI_FALSE;
@@ -201,7 +227,7 @@ JNIEXPORT void JNI_OnUnload(JavaVM* vm, void* reserved)
 // public native boolean loadModel(AssetManager mgr, int taskid, int modelid, int cpugpu);
 JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_loadModel(JNIEnv* env, jobject thiz, jobject assetManager, jint taskid, jint modelid, jint cpugpu, jint capacity)
 {
-    if (taskid < 0 || taskid > 1 || modelid < 0 || modelid > 2 || cpugpu < 0 || cpugpu > 1 || capacity < 0 || capacity > 3)
+    if (taskid < 0 || taskid > 1 || modelid < 0 || modelid > 2 || cpugpu < 0 || cpugpu > 1 || capacity < 0 || capacity >= MODEL_COUNT)
         return JNI_FALSE;
     AAssetManager* mgr = AAssetManager_fromJava(env, assetManager);
     ncnn::MutexLockGuard g(lock);
@@ -215,13 +241,12 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_loadModel(JNIE
         if (ncnn::get_gpu_count() == 0) use_gpu = false;
     }
     auto* detector = new YOLOv8_det_coco;
-    detector->road = capacity >= 2;
-    detector->classes = capacity >= 2 ? 4 : 80;
+    detector->classes = MODEL_SPECS[capacity].classes;
+    detector->names = MODEL_SPECS[capacity].names;
+    g_model_index = capacity;
     g_yolov8 = detector;
-    const char* params[] = {"yolov8n.ncnn.param","yolov8s.ncnn.param","rdd2022-yolov8n.ncnn.param","rdd2022-yolov8s.ncnn.param"};
-    const char* bins[] = {"yolov8n.ncnn.bin","yolov8s.ncnn.bin","rdd2022-yolov8n.ncnn.bin","rdd2022-yolov8s.ncnn.bin"};
-    const char* param = params[capacity];
-    const char* weights = bins[capacity];
+    const char* param = MODEL_SPECS[capacity].param;
+    const char* weights = MODEL_SPECS[capacity].bin;
     g_stats[6]=0;
     if (g_yolov8->load(mgr, param, weights, use_gpu) != 0) {
         delete g_yolov8;
@@ -230,7 +255,7 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_loadModel(JNIE
     }
     const int sizes[] = {320, 480, 640};
     g_yolov8->set_det_target_size(sizes[modelid]);
-    g_vehicle_only = taskid == 1 && capacity < 2;
+    g_vehicle_only = taskid == 1 && (capacity < 2 || capacity == 4);
     g_stats[5]=use_gpu ? 1 : 0; g_stats[6]=1;
     g_stats[0]=0; g_stats[1]=0; g_stats[2]=0; g_stats[3]=0; g_last_frame=0; g_frame_interval=0;
     return JNI_TRUE;
@@ -244,7 +269,7 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_openCamera(JNI
 
     __android_log_print(ANDROID_LOG_DEBUG, "ncnn", "openCamera %d", facing);
 
-    { ncnn::MutexLockGuard guard(lock); g_last_frame=0; g_frame_interval=0; g_stats[0]=0; }
+    { ncnn::MutexLockGuard guard(lock); g_last_frame=0; g_frame_interval=0; g_stats[0]=0;g_rules.reset(); }
     return g_camera->open((int)facing) == 0 ? JNI_TRUE : JNI_FALSE;
 }
 
@@ -310,8 +335,9 @@ JNIEXPORT jobject JNICALL Java_com_tencent_yolov8ncnn_YOLOv8Ncnn_captureFrame(JN
     env->SetFloatArrayRegion(metrics,0,7,capture_stats);
     if (!boxes.empty()) env->SetFloatArrayRegion(detections,0,boxes.size(),boxes.data());
     jclass cls=env->FindClass("com/tencent/yolov8ncnn/FrameCapture");
-    jmethodID ctor=env->GetMethodID(cls,"<init>","([III[F[FJJ)V");
-    jobject result=env->NewObject(cls,ctor,data,width,height,metrics,detections,capture_frame_id,capture_elapsed_ns);
+    jmethodID ctor=env->GetMethodID(cls,"<init>","([III[F[FJJLjava/lang/String;)V");
+    jstring analysis=env->NewStringUTF(capture_rule_snapshot.c_str());
+    jobject result=env->NewObject(cls,ctor,data,width,height,metrics,detections,capture_frame_id,capture_elapsed_ns,analysis);
     capture_rgb.release(); capture_objects.clear();
     return result;
 }

@@ -18,6 +18,7 @@
 #include <opencv2/core/core.hpp>
 
 #include <net.h>
+#include <string>
 
 struct KeyPoint
 {
@@ -64,7 +65,7 @@ public:
 class YOLOv8_det_coco : public YOLOv8_det
 {
 public:
-    bool road = false;
+    std::vector<std::string> names;
     virtual int draw(cv::Mat& rgb, const std::vector<Object>& objects);
 };
 

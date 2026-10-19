@@ -30,7 +30,7 @@ final class LiveHttpSession {
         if(!HttpsURLConnection.getDefaultHostnameVerifier().verify(host,tls.getSession()))throw new SSLPeerUnverifiedException("Hostname verification failed");
         if(cancelled)throw new IOException("Closed stream");
         output=tls.getOutputStream();
-        String headers="POST /wandervision/api/v1/devices/"+credentials.device+"/live/stream HTTP/1.1\r\nHost: "+host+"\r\nAuthorization: Bearer "+credentials.token+"\r\nContent-Type: application/x-wandervision-live\r\nTransfer-Encoding: chunked\r\nUser-Agent: wandervision/3.3.0 (Android)\r\nX-WV-Test-Data: "+(test?"1":"0")+"\r\nX-WV-Stream-Id: "+id+"\r\nAccept: application/json\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n";
+        String headers="POST /wandervision/api/v1/devices/"+credentials.device+"/live/stream HTTP/1.1\r\nHost: "+host+"\r\nAuthorization: Bearer "+credentials.token+"\r\nContent-Type: application/x-wandervision-live\r\nTransfer-Encoding: chunked\r\nUser-Agent: wandervision/3.4.0 (Android)\r\nX-WV-Test-Data: "+(test?"1":"0")+"\r\nX-WV-Stream-Id: "+id+"\r\nAccept: application/json\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n";
         output.write(headers.getBytes(StandardCharsets.US_ASCII));output.flush();
     }
     void send(byte[] jpeg) throws IOException {

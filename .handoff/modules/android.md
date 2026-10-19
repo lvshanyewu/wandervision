@@ -3,7 +3,7 @@ schema_version: 1
 type: "module"
 id: "android"
 title: "Android 本地视觉与构建"
-summary: "3.3原生巡检App：COCO/RDD2022 Nano+Small、LIVE前台开关/HTTP1.1长流、内嵌手机地图，保留同帧定位照片/配对心跳/幂等上传；真机持续帧率与路害效果待验收。"
+summary: "3.4 Android实验模型：十检测器、同帧拍照车牌OCR、固定机位ROI规则、可选720p采集；保留定位照片/配对/LIVE/手机地图，真机效果待验收。"
 aliases: []
 tags: ["Android", "NCNN"]
 sources: ["android/app/build.gradle", "android/app/src/main/java/", "android/app/src/main/jni/*.cpp", "android/app/src/main/jni/*.h", "android/app/src/main/jni/CMakeLists.txt", "android/app/src/main/assets/*.ncnn.*", "android/app/src/main/res/", "android/app/src/main/AndroidManifest.xml", "tools/prepare_native.py", "tools/check_apk.py", "tools/check_report.py", "docs/inspection-record.md", "android/app/src/androidTest/", "docs/android-monitor.md"]
@@ -12,18 +12,20 @@ related_modules: []
 business_rules: []
 invariants: []
 consumers: []
-updated_at: "2026-10-18T10:12:21+08:00"
+updated_at: "2026-10-19T22:00:04+08:00"
 ---
 
 # 当前实现
 
-Android 3.3.0/versionCode6，包名io.github.lvshanyewu.wandervision。NCNN本地链路保留COCO Nano/Small，并新增RDD2022 Nano/Small四类路害（纵裂/横裂/龟裂/坑洞）；ModelCatalog稳定model_id与模型内class_id，车辆过滤只用于COCO。prepare_native调用prepare_models固定公开模型包/哈希，第三方来源许可随APK。输入320/480/640，CPU/系统Vulkan，无Turnip。
+Android 3.4.0/versionCode7，包名io.github.lvshanyewu.wandervision。NCNN本地链路保留COCO Nano/Small、RDD2022 Nano/Small；新增BDD100K Nano、交通标志36类/21类、车牌YOLOv8n、垃圾6类、TACO YOLO11s九类，合计十检测器，一次只加载所选模型。ModelCatalog使用稳定model_id与模型内class_id；COCO/BDD分别按自身类别过滤车辆。输入320/480/640，CPU/系统Vulkan，无Turnip。prepare_native调用prepare_models与prepare_experiments下载固定公开模型包，所有新增产物和字典校验SHA256；来源许可随APK。
 
-原生黑黄巡检UI，底部弹窗由下上移且提前定尺寸。LIVE需配对启用、首开披露公开演示用途，后续单击开关；JNI单槽带框最新帧长边640，JPEG55/80ms采样，TLS默认信任+主机名校验的HTTP1.1 chunked持续上传，UUID/公开状态匹配才显示接收FPS。55秒/14MiB轮换，2.5秒写watchdog，离开前台、切换镜头/模型、暂停/解除连接停止；无录像/后台服务。最后原生连续流帧率未验证，不可声称10–15FPS达成。
+车牌模式按快门从同一原生帧裁剪并用HyperLPR3识别器NCNN CPU推理，候选/置信度写照片与JSON plate_recognition。不含四角矫正/双层合并。官方77字典与78输出差异以拒绝未知索引处理。模型与边界详见docs/teacher-scope-feasibility.md、ocr-model-manifest.json。
 
-App内同源/mobile只读WebView地图/设备概览，无token URL、JS桥、网页位置/相机权限或宽松TLS，关闭销毁。保留简化本地仪表盘。
+实验室提供自有轻量类别一致IoU/中心点关联的固定机位ROI停留、逆向、虚拟线跨越和限定已知类别道路异物提示。用户须手选区域/方向并确认固定手机；提示不等于交通违法、实线/应急车道自动识别、真实物理量。规则不持久启用，切镜头/模型、后台/相机关闭自动关闭。JSON experimental_analysis随捕获原生帧导出。可选1280×720采集，创建失败/无首帧回退640×480；一键恢复COCO Nano/CPU/320/基线采集并关闭规则。
 
-既有LocationTracker前台约10秒WGS84、30秒过期；JNI同帧取景生成含定位/检测信息JPEG与不可变schema1.0原JSON、EXIF与SHA；私有回执与手动幂等上传分离。MonitorLink独立网络队列，固定HTTPS配对/10秒前台心跳、凭据epoch fencing、隐私备份排除。模型/位置/相机实效仅由用户真机反馈确认。构建与边界详见docs/build-verification-3.3.0.md、docs/android-live.md。
+原生黑黄巡检UI，底部弹窗由下上移。LIVE需配对启用、首开披露公开演示用途，后续单击开关；JNI单槽带框最新帧，HTTP1.1 chunked持续上传。离开前台、切换镜头/模型、暂停/解除连接停止；无录像/后台服务。真实小米13连续帧率不可由模拟器推断。
+
+App内同源/mobile只读WebView地图/设备概览，无token URL、JS桥、网页位置/相机权限或宽松TLS，关闭销毁。保留简化本地仪表盘。LocationTracker前台约10秒WGS84、30秒过期；同帧取景生成定位/检测JPEG、不可变schema1.0 JSON、EXIF/SHA；回执与手动幂等上传分离。新字段作为可选扩展，未修改Web/API。
 
 # 构建与发布入口
 
@@ -35,7 +37,9 @@ GitHub Actions执行assembleDebug lintDebug、模型/ABI/签名检查，v*标签
 Windows11；Android Studio D:/AndroidStudio；SDK D:/AndroidStudioSDK。ADB MCP 路径 D:/Androiddevedoc/adb-mcp/adb-mcp.exe，可通过 tools/adb_mcp.py 调用。不要将机器路径或签名私钥放入构建源码。
 # 验证边界与后续
 
-用户已确认0.1正常启动/夜间车辆识别尚可、0.2功能性无问题；不能推断量化FPS/GPU/发热/长时间稳定性全项通过。3.1本地ARM64构建/lint、签名/包检查通过；模拟器检查同帧照片、JSON/EXIF/校验和、定位更新/关闭/拒绝权限/近似授权/离开停止、横竖屏面板等。模拟器不是小米13相机方向、实际GNSS质量或骁龙性能证据。3.1真机验收与最终发布结果写continuation和docs/build-verification-3.1.0.md。3.2已通过实际HTTPS监控联动测试；独立Web工作仍由web-dashboard模块跟踪。病害模型/Turnip仍需独立转换和真机实验。
+用户已确认早期版本正常启动、夜间车辆识别尚可及功能正常；不能推断新模型实景准确率、GPU、发热或长时间稳定性。3.4最终x86_64模拟器55项契约/原生模型检查通过；六检测器18个矩形/方形输入转换数值对照、OCR ONNX/NCNN数值对照通过，同帧车牌模式无目标照片/JSON完整性已检查。ARM64 assembleDebug lintDebug、check_apk、apksigner与16KiB zipalign通过，发布结果见continuation及docs/build-verification-3.4.0.md。
+
+真实小米13相机、720p支持、GNSS、各模型精度/FPS和车牌可读率由用户测试。积水权重未找到明确再分发许可，未打包；设施损坏、事故、专用车型、真实超速/超高/车距未实现。固定机位规则不是移动相机行为识别。研究逐项映射见docs/teacher-scope-feasibility.md。
 
 # 监控中心联动（3.2.0）
 

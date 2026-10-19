@@ -27,7 +27,8 @@ if not inf['enabled']:
     assert not inf['detections'] and inf['inference_ms'] is None and inf['max_confidence'] is None
 for detection in inf['detections']:
     road = inf['model_id'] in {'rdd2022-yolov8n','rdd2022-yolov8s'}
-    assert 0 <= detection['class_id'] < (4 if road else 80) and detection['label']
+    extra_counts={'bdd100k-yolov8n':10,'traffic-signs36-yolov8':36,'traffic-signs21-yolov8':21,'plate-yolov8n':1,'garbage-yolov8s':6,'litter-yolo11s':9}
+    assert 0 <= detection['class_id'] < (4 if road else extra_counts.get(inf['model_id'],80)) and detection['label']
     if road:
         assert detection['label'] == ['longitudinal_crack','transverse_crack','alligator_crack','pothole'][detection['class_id']]
     assert 0 <= detection['confidence'] <= 1

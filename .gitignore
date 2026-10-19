@@ -8,6 +8,8 @@
 artifacts/
 .deps/
 android/app/src/main/assets/rdd2022-*.ncnn.*
+android/app/src/main/assets/*.ncnn.*
+android/app/src/main/assets/plateocr-tokens.txt
 android/app/src/main/jni/ncnn-*/
 android/app/src/main/jni/opencv-mobile-*/
 *.keystore
