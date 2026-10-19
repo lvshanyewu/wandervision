@@ -12,7 +12,7 @@ related_modules: []
 business_rules: []
 invariants: []
 consumers: []
-updated_at: "2026-10-19T22:00:04+08:00"
+updated_at: "2026-10-19T22:02:31+08:00"
 ---
 
 # 当前实现
@@ -29,9 +29,9 @@ App内同源/mobile只读WebView地图/设备概览，无token URL、JS桥、网
 
 # 构建与发布入口
 
-Android 工程在 android/；Gradle9.4.1/AGP9.2.1/JDK21/SDK37.0/NDK29.0.14206865/CMake3.31.5。tools/prepare_native.py固定NCNN20260526与OpenCV4.13.0/v36官方包SHA256。常规assembleDebug默认仅ARM64；-PtestAbi=x86_64仅供模拟器，不得当作手机交付；tools/check_apk.py强制ARM64和Nano/Small两对模型。
+Android工程在android/；Gradle9.4.1/AGP9.2.1/JDK21/SDK37.0/NDK29.0.14206865/CMake3.31.5。tools/prepare_native.py固定NCNN20260526与OpenCV4.13.0/v36官方包SHA256，并调用prepare_models.py和prepare_experiments.py安装固定Release模型包。常规assembleDebug默认仅ARM64；-PtestAbi=x86_64仅供模拟器，不得当作手机交付。tools/check_apk.py检查仅ARM64、十检测器/OCR/字典和新增资产哈希。源权重/转换工具与清单见tools/export_experiment_models.py、docs/experiment-models-manifest.json、docs/ocr-model-manifest.json，权重不得提交Git。
 
-GitHub Actions执行assembleDebug lintDebug、模型/ABI/签名检查，v*标签自动预发布。0.2.0起使用专用固定测试签名，密钥来自GitHub加密Secrets；本机密钥在仓库外，通过WV_KEYSTORE_PATH/WV_STORE_PASSWORD可选传入，别名wandervision；不得提交私钥。0.1.0升级签名冲突需卸载。
+GitHub Actions执行assembleDebug lintDebug、模型/ABI/签名检查，v*标签自动预发布，已有Release时保留已发布资产。0.2.0起使用专用固定测试签名，密钥来自GitHub加密Secrets；本机密钥在仓库外，通过WV_KEYSTORE_PATH/WV_STORE_PASSWORD传入，别名wandervision；不得提交私钥。0.1.0升级签名冲突需卸载。
 
 # 环境
 Windows11；Android Studio D:/AndroidStudio；SDK D:/AndroidStudioSDK。ADB MCP 路径 D:/Androiddevedoc/adb-mcp/adb-mcp.exe，可通过 tools/adb_mcp.py 调用。不要将机器路径或签名私钥放入构建源码。

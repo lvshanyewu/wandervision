@@ -4,9 +4,10 @@ type: "continuation"
 id: "android-experiments-3.4"
 title: "3.4实验模型与固定机位规则批量接入"
 module_id: "android"
-status: "open"
-next_step: "提交3.4源码与验证文档，发布v3.4.0 APK，回填链接并交付用户真机测试。"
-updated_at: "2026-10-19T22:00:52+08:00"
+status: "done"
+next_step: "用户覆盖安装v3.4.0，从CPU/320逐个测试标志/垃圾/车牌拍照读号；固定机位再试ROI规则。依据小米13反馈保留或删除实验项。"
+updated_at: "2026-10-19T22:05:28+08:00"
+external_checks: [{"service": "GitHub Release", "status": "published", "checked_at": "2026-10-19T22:05:09+08:00", "evidence": "v3.4.0 https://github.com/lvshanyewu/wandervision/releases/tag/v3.4.0 APK与SHA256SUMS上传完成；API确认APK160158481字节与本机SHA256一致。源码0fc89a7；GitHub Actions runs39265272124/39265222013均success。"}]
 ---
 
 # 用户授权

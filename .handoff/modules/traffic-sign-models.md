@@ -3,7 +3,7 @@ schema_version: 1
 type: "module"
 id: "traffic-sign-models"
 title: "交通标志、路牌与车牌模型候选"
-summary: "2026-10-19已下载静态核验四份标准YOLOv8候选：BDD100K10类、交通标志36/21类、单类车牌定位；国内精细标志可试PULC232类裁剪分类，完整中文车牌优先HyperLPR3。尚未转换/集成。"
+summary: "交通标志/车牌与老师选做范围调查已落地3.4实验入口：BDD道路、标志36/21类、YOLO车牌+同帧HyperLPR OCR、两套垃圾模型；逐项可行性与未实现边界见docs/teacher-scope-feasibility.md。"
 aliases: []
 tags: []
 sources: ["docs/traffic-sign-model-feasibility.md", "docs/traffic-sign-model-candidates.json"]
@@ -12,7 +12,7 @@ related_modules: ["android", "model-research"]
 business_rules: []
 invariants: []
 consumers: []
-updated_at: "2026-10-19T21:15:33+08:00"
+updated_at: "2026-10-19T22:03:49+08:00"
 ---
 
 ## 已核查
