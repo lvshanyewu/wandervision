@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+<symbol id="grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
+<symbol id="camera" viewBox="0 0 24 24"><path d="M4 7h13v11H4zM17 10l4-2v9l-4-2M7 7l2-3h4l2 3"/><circle cx="10" cy="12" r="2.5"/></symbol>
+<symbol id="car" viewBox="0 0 24 24"><path d="M4 11l2-6h12l2 6M3 11h18v7H3zM5 18v3M19 18v3M6 14h2M16 14h2"/></symbol>
+<symbol id="phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 5h4M11 19h2"/></symbol>
+<symbol id="map" viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15"/></symbol>
+<symbol id="pin" viewBox="0 0 24 24"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 0114 0z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+<symbol id="alert" viewBox="0 0 24 24"><path d="M10.3 4L2 19a1 1 0 001 1.5h18a1 1 0 001-1.5L13.7 4a2 2 0 00-3.4 0zM12 9v5M12 17h.01"/></symbol>
+<symbol id="activity" viewBox="0 0 24 24"><path d="M2 12h5l3-8 4 16 3-8h5"/></symbol>
+<symbol id="chart" viewBox="0 0 24 24"><path d="M4 3v18h17M8 16v-5M13 16V7M18 16V4"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M16 16l5 5"/></symbol>
+<symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></symbol>
+<symbol id="pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+<symbol id="play" viewBox="0 0 24 24"><path d="M7 4l14 8-14 8z"/></symbol>
+<symbol id="reset" viewBox="0 0 24 24"><path d="M4 10a8 8 0 111 8M4 4v6h6"/></symbol>
+<symbol id="layers" viewBox="0 0 24 24"><path d="M2 8l10-5 10 5-10 5zM2 12l10 5 10-5M2 16l10 5 10-5"/></symbol>
+<symbol id="target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+<symbol id="link" viewBox="0 0 24 24"><path d="M10 7l3-3a5 5 0 017 7l-3 3M14 17l-3 3a5 5 0 01-7-7l3-3M8 16l8-8"/></symbol>
+<symbol id="close" viewBox="0 0 24 24"><path d="M6 6l12 12M6 18L18 6"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></symbol>
+<symbol id="wifi" viewBox="0 0 24 24"><path d="M3 8a14 14 0 0118 0M6 12a9 9 0 0112 0M9 16a4 4 0 016 0M12 20h.01"/></symbol>
+<symbol id="road" viewBox="0 0 24 24"><path d="M7 3L3 21M17 3l4 18M12 3v3M12 10v4M12 18v3"/></symbol>
+<symbol id="settings" viewBox="0 0 24 24"><path d="M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="photo" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="2"/><path d="M4 18l5-5 4 3 3-6 5 8"/></symbol>
+</svg>

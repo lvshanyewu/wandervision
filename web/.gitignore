@@ -1,0 +1,4 @@
+runtime/
+*.sqlite3*
+*.env
+test-results/
