@@ -24,6 +24,14 @@ public class YOLOv8Ncnn
     public native void setDetectionEnabled(boolean enabled);
     public native float[] getStats();
     public native FrameCapture captureFrame();
+    public native String[] readPlateText(AssetManager assets,int[] pixels,int width,int height,float[] boxes);
+    public native void setRules(int flags,float left,float top,float right,float bottom,int direction,long dwellMs);
+    public native String getRuleSnapshot();
+    public native boolean setCaptureProfile(int profile);
+    public native void setLiveEnabled(boolean enabled);
+    public native int[] takeLivePixels();
+    public native boolean smokeModel(int width,int height);
+    public native boolean smokeRules();
     public native boolean openCamera(int facing);
     public native boolean closeCamera();
     public native boolean setOutputWindow(Surface surface);

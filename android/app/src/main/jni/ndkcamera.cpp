@@ -191,6 +191,7 @@ NdkCamera::NdkCamera()
         AImageReader_getWindow(image_reader, &image_reader_surface);
 
         ANativeWindow_acquire(image_reader_surface);
+        base_reader=image_reader;base_surface=image_reader_surface;
     }
 }
 
@@ -198,17 +199,26 @@ NdkCamera::~NdkCamera()
 {
     close();
 
-    if (image_reader)
-    {
-        AImageReader_delete(image_reader);
-        image_reader = 0;
-    }
+    if(base_reader)AImageReader_delete(base_reader);
+    if(high_reader)AImageReader_delete(high_reader);
+    if(base_surface)ANativeWindow_release(base_surface);
+    if(high_surface)ANativeWindow_release(high_surface);
+}
 
-    if (image_reader_surface)
-    {
-        ANativeWindow_release(image_reader_surface);
-        image_reader_surface = 0;
-    }
+bool NdkCamera::configure_capture(int width,int height) {
+    if(camera_device)return false;
+    if(width==capture_width&&height==capture_height)return true;
+    // Keep inactive readers alive until camera destruction; callbacks from a closed
+    // capture session must never race destruction of their image reader.
+    if(width==640){image_reader=base_reader;image_reader_surface=base_surface;capture_width=width;capture_height=height;return true;}
+    if(high_reader){image_reader=high_reader;image_reader_surface=high_surface;capture_width=width;capture_height=height;return true;}
+    AImageReader* reader=nullptr;ANativeWindow* surface=nullptr;
+    if(AImageReader_new(width,height,AIMAGE_FORMAT_YUV_420_888,2,&reader)!=AMEDIA_OK||!reader)return false;
+    AImageReader_ImageListener listener;listener.context=this;listener.onImageAvailable=onImageAvailable;
+    AImageReader_setImageListener(reader,&listener);
+    if(AImageReader_getWindow(reader,&surface)!=AMEDIA_OK||!surface){AImageReader_delete(reader);return false;}
+    ANativeWindow_acquire(surface);
+    high_reader=reader;high_surface=surface;image_reader=reader;image_reader_surface=surface;capture_width=width;capture_height=height;return true;
 }
 
 int NdkCamera::open(int _camera_facing)

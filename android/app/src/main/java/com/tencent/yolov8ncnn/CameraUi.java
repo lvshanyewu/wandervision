@@ -17,7 +17,7 @@ final class CameraUi {
         void mode(int value); void model(); void size(); void engine(); void shutter();
         void history(); void flip(); void settings(); void dashboard();
         void locationSettings();
-        void monitorDashboard();
+        void monitorDashboard(); void live(); void lab();
     }
     static final int INK=0xff0c0d0f, PANEL=0xff191b1f, LINE=0xff35383e;
     static final int WHITE=0xffedf0f3, MUTED=0xff999fa8;
@@ -30,10 +30,11 @@ final class CameraUi {
     final SurfaceView surface;
     final FrameLayout viewport;
     final TextView status, lens, message, fps, latency, objects, model, size, engine, captureCount;
-    final TextView[] modes=new TextView[3];
+    final TextView[] modes=new TextView[5];
     final GridOverlay overlay;
     private final Gauge fpsGauge, confidenceGauge;
     private final TextView profileBadge;
+    private final TextView labStatus;
     private final TextView locationStatus;
     private final boolean landscape;
     private final ArrayList<Dialog> sheets=new ArrayList<>();
@@ -65,10 +66,12 @@ final class CameraUi {
         overlay=new GridOverlay(a);overlay.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         viewport.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout badges=row();badges.setGravity(Gravity.CENTER_VERTICAL);badges.setPadding(dp(10),dp(10),dp(58),0);
-        status=text("●  准备中",10,WHITE);status.setPadding(dp(9),dp(7),dp(9),dp(7));status.setBackground(shape(0xdc15181c,7,0x40646b73));badges.addView(status);
+        status=text("●  准备中",10,WHITE);status.setPadding(dp(9),dp(7),dp(9),dp(7));status.setBackground(shape(0xdc15181c,7,0x40646b73));status.setMinHeight(dp(44));status.setGravity(Gravity.CENTER);status.setOnClickListener(v->actions.live());status.setContentDescription("LIVE实时画面传输开关");badges.addView(status);
         badges.addView(new Space(a),new LinearLayout.LayoutParams(0,1,1));
         profileBadge=text("NANO · 320",9,WHITE);profileBadge.setPadding(dp(8),dp(7),dp(8),dp(7));profileBadge.setBackground(shape(0xdc15181c,7,0x40646b73));badges.addView(profileBadge);
         viewport.addView(badges,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
+        labStatus=text("",9,YELLOW);labStatus.setPadding(dp(8),dp(6),dp(8),dp(6));labStatus.setBackground(shape(0xd015181c,6,0));labStatus.setOnClickListener(v->actions.lab());labStatus.setVisibility(View.GONE);
+        FrameLayout.LayoutParams labParams=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.LEFT);labParams.topMargin=dp(66);labParams.leftMargin=dp(10);viewport.addView(labStatus,labParams);
         message=text("正在准备本地视觉引擎",13,WHITE);message.setGravity(Gravity.CENTER);message.setPadding(dp(22),dp(10),dp(60),dp(10));
         viewport.addView(message,new FrameLayout.LayoutParams(-1,-2,Gravity.CENTER));
 
@@ -80,11 +83,11 @@ final class CameraUi {
         FrameLayout.LayoutParams rp=new FrameLayout.LayoutParams(dp(46),-2,Gravity.TOP|Gravity.RIGHT);rp.topMargin=dp(7);rp.rightMargin=dp(5);viewport.addView(rail,rp);
 
         LinearLayout selector=row();selector.setPadding(dp(3),dp(3),dp(3),dp(3));selector.setBackground(shape(0xdc111317,9,0xff45494f));
-        String[] names={"通用","车辆","取景"};
-        for(int i=0;i<3;i++) {
+        String[] names={"通用","车辆","取景","路害","实验"};
+        for(int i=0;i<5;i++) {
             final int value=i;modes[i]=text(names[i],11,WHITE);modes[i].setGravity(Gravity.CENTER);
             modes[i].setOnClickListener(v->{haptic(v);actions.mode(value);});modes[i].setContentDescription(names[i]+"模式");
-            selector.addView(modes[i],new LinearLayout.LayoutParams(dp(51),dp(38)));
+            selector.addView(modes[i],new LinearLayout.LayoutParams(dp(40),dp(38)));
         }
         FrameLayout.LayoutParams sp=new FrameLayout.LayoutParams(-2,dp(44),Gravity.BOTTOM|Gravity.LEFT);sp.setMargins(dp(10),0,0,dp(10));viewport.addView(selector,sp);
         lens=text("后置",9,WHITE);lens.setPadding(dp(9),dp(7),dp(9),dp(7));lens.setBackground(shape(0xdc111317,7,0xff45494f));
@@ -117,18 +120,19 @@ final class CameraUi {
         LinearLayout nav=row();
         nav.addView(navItem("scan","巡检",true,null),new LinearLayout.LayoutParams(0,-1,1));
         nav.addView(navItem("records","记录",false,actions::history),new LinearLayout.LayoutParams(0,-1,1));
-        View track=navItem("pin","轨迹",false,null);track.setAlpha(.3f);track.setEnabled(false);track.setContentDescription("轨迹，尚未接入");nav.addView(track,new LinearLayout.LayoutParams(0,-1,1));
+        View track=navItem("pin","地图",false,actions::monitorDashboard);nav.addView(track,new LinearLayout.LayoutParams(0,-1,1));
         nav.addView(navItem("settings","工具",false,actions::settings),new LinearLayout.LayoutParams(0,-1,1));
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,dp(landscape?48:53));np.topMargin=dp(landscape?6:7);tools.addView(nav,np);
         locationStatus=text("定位准备中",9,MUTED);locationStatus.setGravity(Gravity.CENTER);locationStatus.setSingleLine(true);locationStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);locationStatus.setContentDescription("前台定位状态，点击设置");locationStatus.setOnClickListener(v->actions.locationSettings());tools.addView(locationStatus,new LinearLayout.LayoutParams(-1,dp(landscape?16:18)));
     }
 
     void profile(int mode,int capacity,int resolution,int backend,int captures) {
-        for(int i=0;i<3;i++) {
-            modes[i].setTextColor(i==mode?INK:WHITE);modes[i].setTypeface(Typeface.DEFAULT,i==mode?Typeface.BOLD:Typeface.NORMAL);
-            modes[i].setBackground(i==mode?shape(YELLOW,6,0):null);
+        int selected=mode!=2&&mode!=1&&capacity>=4?4:mode;
+        for(int i=0;i<5;i++) {
+            modes[i].setTextColor(i==selected?INK:WHITE);modes[i].setTypeface(Typeface.DEFAULT,i==selected?Typeface.BOLD:Typeface.NORMAL);
+            modes[i].setBackground(i==selected?shape(YELLOW,6,0):null);
         }
-        String modelName=capacity==0?"NANO":"SMALL",input=new String[]{"320","480","640"}[resolution];
+        String modelName=ModelCatalog.name(capacity),input=new String[]{"320","480","640"}[resolution];
         model.setText(modelName+" ⌄");size.setText(input+" ⌄");engine.setText(backend==0?"CPU ⌄":"GPU ⌄");
         profileBadge.setText(modelName+" · "+input);captureCount.setText(captures+" 张");
     }
@@ -137,8 +141,10 @@ final class CameraUi {
         confidenceGauge.update(running&&!preview&&values[2]>0?String.format(Locale.US,"%.0f%%",values[3]*100):"—",running&&!preview?values[3]:0);
         latency.setText(running&&!preview?String.format(Locale.US,"%.0f",values[1]):"—");
         objects.setText(running&&!preview?String.format(Locale.US,"%02d",(int)values[2]):"—");
-        status.setText(running?(preview?"●  纯取景":"●  LIVE · YOLOv8"):"○  待机");status.setTextColor(running?WHITE:MUTED);
+        // LIVE badge is controlled by transmission state, not local inference.
     }
+    void liveState(String label,boolean active){status.setText(label);status.setTextColor(active?YELLOW:WHITE);}
+    void labStatus(String value){labStatus.setText(value);labStatus.setVisibility(value.isEmpty()?View.GONE:View.VISIBLE);}
     void busy(String text){message.setText(text);message.setVisibility(text.isEmpty()?View.GONE:View.VISIBLE);}
     void lens(int facing){lens.setText(facing==1?"后置镜头":"前置 · 镜像");}
     int dp(float value){return (int)(value*activity.getResources().getDisplayMetrics().density+.5f);}
@@ -183,6 +189,7 @@ final class CameraUi {
     static void haptic(View v){v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);}
 
     Dialog sheet(String title,String subtitle) {
+        for(Dialog old:new ArrayList<>(sheets)){if(old.getWindow()!=null)old.getWindow().setWindowAnimations(0);old.dismiss();}
         Dialog dialog=new Dialog(activity);dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         LinearLayout box=column();box.setPadding(dp(18),dp(16),dp(18),dp(20));box.setBackground(shape(0xff15171a,16,LINE));
         LinearLayout heading=row();heading.setGravity(Gravity.CENTER_VERTICAL);
@@ -191,8 +198,8 @@ final class CameraUi {
         TextView close=text("×",27,MUTED);close.setGravity(Gravity.CENTER);close.setContentDescription("关闭面板");close.setOnClickListener(v->dialog.dismiss());heading.addView(close,new LinearLayout.LayoutParams(dp(44),dp(44)));box.addView(heading);
         TextView description=text(subtitle,11,MUTED);description.setLineSpacing(dp(3),1);description.setPadding(0,dp(7),0,dp(12));box.addView(description);
         ScrollView scroll=new ScrollView(activity);scroll.setTag("sheet-scroll");scroll.setFillViewport(false);scroll.addView(box);dialog.setContentView(scroll);
-        Window window=dialog.getWindow();if(window!=null){window.setBackgroundDrawableResource(android.R.color.transparent);window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);WindowManager.LayoutParams w=window.getAttributes();w.dimAmount=.48f;w.gravity=Gravity.BOTTOM;w.windowAnimations=R.style.SheetMotion;window.setAttributes(w);}
-        dialog.setOnShowListener(d->{if(window!=null)window.setLayout(Math.min(activity.getResources().getDisplayMetrics().widthPixels-dp(24),dp(440)),-2);});
+        Window window=dialog.getWindow();if(window!=null){window.setBackgroundDrawableResource(android.R.color.transparent);window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);WindowManager.LayoutParams w=window.getAttributes();w.dimAmount=.48f;w.gravity=Gravity.BOTTOM;w.windowAnimations=R.style.SheetMotion;w.width=Math.min(activity.getResources().getDisplayMetrics().widthPixels-dp(24),dp(440));w.height=WindowManager.LayoutParams.WRAP_CONTENT;window.setAttributes(w);}
+        scroll.setOnApplyWindowInsetsListener((v,insets)->insets);
         sheets.add(dialog);dialog.setOnDismissListener(d->sheets.remove(dialog));return dialog;
     }
     void dismissSheets(){for(Dialog d:new ArrayList<>(sheets))d.dismiss();sheets.clear();}

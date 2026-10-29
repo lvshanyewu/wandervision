@@ -24,3 +24,7 @@ for name, url, checksum in DEPS:
     with zipfile.ZipFile(archive) as z:
         z.extractall(target)
     print('Verified and extracted', name, flush=True)
+
+import runpy
+runpy.run_path(str(Path(__file__).with_name('prepare_models.py')), run_name='__main__')
+runpy.run_path(str(Path(__file__).with_name('prepare_experiments.py')), run_name='__main__')

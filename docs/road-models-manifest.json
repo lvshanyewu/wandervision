@@ -1,0 +1,28 @@
+{
+  "license": "AGPL-3.0",
+  "format": "NCNN FP16 weights, raw DFL logits [N,68], dynamic input in0/output out0",
+  "classes": [
+    "longitudinal_crack",
+    "transverse_crack",
+    "alligator_crack",
+    "pothole"
+  ],
+  "models": [
+    {
+      "id": "rdd2022-yolov8n",
+      "source": "https://huggingface.co/dronefreak/rdd2022-yolov8n/tree/acf216a43d796f7910fc854f662c1e9cfa03fc01",
+      "files": {
+        "rdd2022-yolov8n.ncnn.param": "51bee4c40fdb4780816becbddbbaed1025677f105e1db297eee38a3536c4f8b5",
+        "rdd2022-yolov8n.ncnn.bin": "332bb1afc77e4fe526f797a63f5148febff21869308fc18bc224471069d14d92"
+      }
+    },
+    {
+      "id": "rdd2022-yolov8s",
+      "source": "https://huggingface.co/dronefreak/rdd2022-yolov8s/tree/06d1dbb6cb1b30f54a5f32f9fd9ee29695e1b106",
+      "files": {
+        "rdd2022-yolov8s.ncnn.param": "f75ea22b7c76df0997537f72d2c003979cded9fdb6b8f3365f4520ed7b6ee880",
+        "rdd2022-yolov8s.ncnn.bin": "e8867d8fed4041c0d909ea3ff69653ff4ab866f1eccdce20903961e69a5a816b"
+      }
+    }
+  ]
+}

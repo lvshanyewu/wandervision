@@ -36,6 +36,7 @@ public:
     // facing 0=front 1=back
     int open(int camera_facing = 0);
     void close();
+    bool configure_capture(int width,int height);
 
     virtual void on_image(const cv::Mat& rgb) const;
 
@@ -44,11 +45,16 @@ public:
 public:
     int camera_facing;
     int camera_orientation;
+    int capture_width=640,capture_height=480;
 
 private:
     ACameraManager* camera_manager;
     ACameraDevice* camera_device;
     AImageReader* image_reader;
+    AImageReader* base_reader=nullptr;
+    AImageReader* high_reader=nullptr;
+    ANativeWindow* base_surface=nullptr;
+    ANativeWindow* high_surface=nullptr;
     ANativeWindow* image_reader_surface;
     ACameraOutputTarget* image_reader_target;
     ACaptureRequest* capture_request;

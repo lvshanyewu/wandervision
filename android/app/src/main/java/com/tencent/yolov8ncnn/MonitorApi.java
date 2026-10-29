@@ -41,6 +41,45 @@ final class MonitorApi {
         }catch(JSONException e){throw new Failure(0,"服务器配对响应格式不正确");}
     }
     void heartbeat(Credentials credentials,JSONObject data) throws IOException {requireOk(transport.post(path(credentials,"heartbeat"),credentials.token,data));}
+    void live(Credentials c,byte[] jpeg,boolean test) throws IOException {
+        if(jpeg.length==0||jpeg.length>262144)throw new Failure(413,"实时帧超过限制");
+        HttpsURLConnection connection=(HttpsURLConnection)new URL(BASE+path(c,"live")).openConnection();
+        try{
+            connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(3000);connection.setReadTimeout(3000);
+            connection.setRequestMethod("POST");connection.setDoOutput(true);connection.setFixedLengthStreamingMode(jpeg.length);
+            connection.setRequestProperty("Content-Type","image/jpeg");connection.setRequestProperty("Authorization","Bearer "+c.token);
+            connection.setRequestProperty("User-Agent","wandervision/3.4.0 (Android)");connection.setRequestProperty("X-WV-Test-Data",test?"1":"0");
+            try(OutputStream out=connection.getOutputStream()){out.write(jpeg);}
+            int status=connection.getResponseCode();if(status!=200)throw new Failure(status,"实时画面暂未送达");
+            try(InputStream in=connection.getInputStream()){
+                JSONObject response=new JSONObject(new String(read(in,8192),StandardCharsets.UTF_8));requireOk(response);
+                if(!c.device.equals(response.optString("device_id"))||!"live".equals(response.optString("state")))throw new Failure(0,"实时回执不正确");
+            }catch(JSONException e){throw new Failure(0,"实时回执格式不正确");}
+        }finally{connection.disconnect();}
+    }
+    void stopLive(Credentials c) throws IOException {requireOk(transport.post(path(c,"live/stop"),c.token,new JSONObject()));}
+    LiveSession openLive(Credentials c,boolean test,String id) throws IOException {return new LiveSession(c,test,id);}
+    JSONObject liveState(Credentials c) throws IOException {
+        HttpsURLConnection connection=(HttpsURLConnection)new URL(BASE+path(c,"live")).openConnection();
+        try{
+            connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(3000);connection.setReadTimeout(3000);
+            connection.setRequestProperty("User-Agent","wandervision/3.4.0 (Android)");
+            if(connection.getResponseCode()!=200)throw new Failure(connection.getResponseCode(),"实时状态不可用");
+            try(InputStream in=connection.getInputStream()){JSONObject result=new JSONObject(new String(read(in,8192),StandardCharsets.UTF_8));requireOk(result);return result;}
+            catch(JSONException e){throw new Failure(0,"实时状态格式不正确");}
+        }finally{connection.disconnect();}
+    }
+    static final class LiveSession {
+        private final LiveHttpSession transport;
+        LiveSession(Credentials c,boolean test,String id) throws IOException {path(c,"live/stream");transport=new LiveHttpSession(c,test,id);}
+        void send(byte[] jpeg) throws IOException {transport.send(jpeg);}
+        void finish() throws IOException {transport.finish();}
+        void cancel(){transport.cancel();}
+    }
+    static void writeLiveFrame(DataOutputStream output,byte[] jpeg) throws IOException {
+        if(jpeg.length==0||jpeg.length>262144)throw new Failure(413,"实时帧超过限制");
+        output.writeInt(jpeg.length);output.write(jpeg);output.flush();
+    }
     JSONObject upload(Credentials credentials,JSONObject report,byte[] jpeg) throws IOException {
         try{
             if(!"1.0".equals(report.getString("schema_version"))||!report.getString("event_id").matches("[a-f0-9\\-]{36}"))throw new Failure(0,"记录格式不支持上传");
@@ -64,11 +103,11 @@ final class MonitorApi {
     static String message(Exception error){return error instanceof Failure?error.getMessage():"网络连接失败，请检查网络后重试";}
     private static final class HttpsTransport implements Transport {
         @Override public JSONObject post(String path,String token,JSONObject data) throws IOException {
-            if(!path.matches("/api/v1/(pair|devices/PHONE-[0-9]{2}/(heartbeat|reports))"))throw new Failure(0,"无效的监控中心接口");
+            if(!path.matches("/api/v1/(pair|devices/PHONE-[0-9]{2}/(heartbeat|reports|live/stop))"))throw new Failure(0,"无效的监控中心接口");
             HttpsURLConnection connection=(HttpsURLConnection)new URL(BASE+path).openConnection();
             try{
-                connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(10_000);connection.setReadTimeout(30_000);connection.setRequestMethod("POST");connection.setDoOutput(true);connection.setRequestProperty("Content-Type","application/json; charset=utf-8");connection.setRequestProperty("Accept","application/json");
-                connection.setRequestProperty("User-Agent","wandervision/3.2.0 (Android)");
+                connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(path.endsWith("/live/stop")?2000:10_000);connection.setReadTimeout(path.endsWith("/live/stop")?2000:30_000);connection.setRequestMethod("POST");connection.setDoOutput(true);connection.setRequestProperty("Content-Type","application/json; charset=utf-8");connection.setRequestProperty("Accept","application/json");
+                connection.setRequestProperty("User-Agent","wandervision/3.4.0 (Android)");
                 if(token!=null)connection.setRequestProperty("Authorization","Bearer "+token);
                 byte[] payload=data.toString().getBytes(StandardCharsets.UTF_8);if(payload.length>MAX_REQUEST)throw new Failure(0,"请求超过大小限制");connection.setFixedLengthStreamingMode(payload.length);
                 try(OutputStream out=connection.getOutputStream()){out.write(payload);}

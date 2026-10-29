@@ -1,0 +1,22 @@
+{
+  "id": "hyperlpr3-rec-ncnn-20230229",
+  "source": "https://github.com/szad670401/HyperLPR/tree/9307450f7b7915be18f23a539ec05b41fe6629f4",
+  "original_archive_url": "http://hyperlpr.tunm.top/raw/20230229.zip",
+  "original_archive_sha256": "ce1cb895dc754a1bf6b50f99f4d745c0a8e1bcd5fecd02ca9b66ad7c24dae15e",
+  "original_onnx_sha256": "8fb08b5db2adeccf43b05006bbbf409e4659d08d72e46a62631c00ff751eaeb3",
+  "license": "Apache-2.0",
+  "input": "BGR [1,3,48,160], (pixel-127.5)/127.5; right-pad zeros after normalization",
+  "output": [
+    1,
+    20,
+    78
+  ],
+  "dictionary_symbols": 77,
+  "unknown_class_policy": "Reject decoded class 77; never shift the dictionary",
+  "scope": "v8 plate detector crop, single-row frontal plate experiment; no HyperLPR detection/classification or geometric rectification",
+  "assets": {
+    "plateocr.ncnn.param": "967096d6b90af11043f6cb50f0b4f60408827b7adce7b0a70879d8744e12ab40",
+    "plateocr.ncnn.bin": "81283ced97452eef6ffc9b236a36dde5f72180688198686eec010d32e0ae4828",
+    "plateocr-tokens.txt": "2c76c65723eaa881c7d3f47128162c898f8e017f7f65e0d5cc136bae8287f3b7"
+  }
+}

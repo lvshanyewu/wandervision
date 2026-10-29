@@ -1,0 +1,89 @@
+{
+  "checked_at": "2026-10-19",
+  "models": [
+    {
+      "repo": "Ayush0000002/Puddle-detection-model",
+      "revision": "7a8ef53d4b0fee120c513ddb9889ce8cb2a999aa",
+      "file": "best.pt",
+      "bytes": 6249194,
+      "sha256": "e4f0843a4d6f81d16639c402380e91f24eb3e350182f13fed5f6b56a4223a526",
+      "license_card": null,
+      "labels": [
+        "puddle"
+      ],
+      "modules": [
+        "ultralytics.nn.modules.block Bottleneck",
+        "ultralytics.nn.modules.block C2f",
+        "ultralytics.nn.modules.block DFL",
+        "ultralytics.nn.modules.block SPPF",
+        "ultralytics.nn.modules.conv Concat",
+        "ultralytics.nn.modules.conv Conv",
+        "ultralytics.nn.modules.head Detect",
+        "ultralytics.nn.tasks DetectionModel"
+      ],
+      "inspection": "static ZIP/pickletools only; not executed/exported/tested"
+    },
+    {
+      "repo": "ShihoAI/yolov8s-garbage-detection",
+      "revision": "da4adf3c05daf7aa5700abbffcaf175cdef0cb35",
+      "file": "best_yolov8s_final.pt",
+      "bytes": 22584035,
+      "sha256": "ffe470066dba636741f3f62af94689673e45ef3d90917b981f4ea3ff7fe8bb8e",
+      "license_card": "agpl-3.0",
+      "labels": [
+        "biological",
+        "cardboard",
+        "metal",
+        "paper",
+        "plastic",
+        "other"
+      ],
+      "modules": [
+        "ultralytics.nn.modules.block Bottleneck",
+        "ultralytics.nn.modules.block C2f",
+        "ultralytics.nn.modules.block DFL",
+        "ultralytics.nn.modules.block SPPF",
+        "ultralytics.nn.modules.conv Concat",
+        "ultralytics.nn.modules.conv Conv",
+        "ultralytics.nn.modules.head Detect",
+        "ultralytics.nn.tasks DetectionModel"
+      ],
+      "inspection": "static ZIP/pickletools only; not executed/exported/tested"
+    },
+    {
+      "repo": "fabiocigaina/TACO-yolo11s",
+      "revision": "6ee8e6fd4e4804b8d5885d09cbe373a8befcc728",
+      "file": "best_model.pt",
+      "bytes": 19187027,
+      "sha256": "1b9c8379aca95efa75ec1f6ac803cabd3ba531b7d4b3f459101bcfd3aaae95ef",
+      "license_card": "mit",
+      "labels": [
+        "Plastic bag & wrapper",
+        "Cigarette",
+        "Bottle",
+        "Bottle cap",
+        "Can",
+        "Other plastic",
+        "Carton",
+        "Cup",
+        "Other"
+      ],
+      "modules": [
+        "ultralytics.nn.modules.block Attention",
+        "ultralytics.nn.modules.block Bottleneck",
+        "ultralytics.nn.modules.block C2PSA",
+        "ultralytics.nn.modules.block C3k",
+        "ultralytics.nn.modules.block C3k2",
+        "ultralytics.nn.modules.block DFL",
+        "ultralytics.nn.modules.block PSABlock",
+        "ultralytics.nn.modules.block SPPF",
+        "ultralytics.nn.modules.conv Concat",
+        "ultralytics.nn.modules.conv Conv",
+        "ultralytics.nn.modules.conv DWConv",
+        "ultralytics.nn.modules.head Detect",
+        "ultralytics.nn.tasks DetectionModel"
+      ],
+      "inspection": "static ZIP/pickletools only; not executed/exported/tested"
+    }
+  ]
+}

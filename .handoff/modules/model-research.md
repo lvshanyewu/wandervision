@@ -3,7 +3,7 @@ schema_version: 1
 type: "module"
 id: "model-research"
 title: "路面预训练模型与Turnip接入调查"
-summary: "优先RDD2022 YOLOv8n，再对照Small；需NCNN原始DFL输出适配。Turnip存在Android命名空间与加载句柄桥接要求，未集成。"
+summary: "3.3已将RDD2022 YOLOv8n/s转成动态原始DFL NCNN并加入App，四类独立标签，10组数值对照通过；真机效果待验收。Turnip仍仅调查、未集成。"
 aliases: []
 tags: []
 sources: ["docs/road-models-and-turnip.md", "android/app/src/main/jni/yolov8_det.cpp", "android/app/src/main/jni/CMakeLists.txt"]
@@ -12,7 +12,7 @@ related_modules: ["android"]
 business_rules: []
 invariants: []
 consumers: []
-updated_at: "2026-10-17T09:32:08+08:00"
+updated_at: "2026-10-18T10:13:49+08:00"
 ---
 
 # 研究结论

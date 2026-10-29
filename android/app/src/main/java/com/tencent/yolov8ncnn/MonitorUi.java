@@ -29,9 +29,27 @@ final class MonitorUi {
     }
     void refreshStatus(){if(connectionStatus!=null&&connectionStatus.isAttachedToWindow())connectionStatus.setText(link.describe());}
     void dashboard(){
-        MonitorApi.Credentials credentials=link.store.credentials();String url=MonitorApi.dashboard(credentials==null?null:credentials.device);
-        try{toast("在系统浏览器查看；返回App后恢复前台心跳");activity.startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE));}catch(ActivityNotFoundException e){toast("没有可用的浏览器");}
+        MonitorApi.Credentials credentials=link.store.credentials();
+        String url=MonitorApi.BASE+"/mobile/"+(credentials==null?"":"?device="+Uri.encode(credentials.device));
+        Dialog d=ui.sheet("巡检概览 · 设备地图","公开只读监控数据 · 地图、设备状态与当前LIVE；相机继续在前台工作。");
+        LinearLayout box=ui.sheetBody(d);
+        android.webkit.WebView web=new android.webkit.WebView(activity);
+        web.setBackgroundColor(CameraUi.INK);
+        android.webkit.WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);
+        settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setGeolocationEnabled(false);
+        settings.setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        web.setWebViewClient(new android.webkit.WebViewClient(){
+            @Override public boolean shouldOverrideUrlLoading(android.webkit.WebView view,android.webkit.WebResourceRequest request){
+                return !trusted(request.getUrl());
+            }
+            @Override public void onPageFinished(android.webkit.WebView view,String ignored){if(!trusted(Uri.parse(view.getUrl())))view.stopLoading();}
+        });
+        box.addView(web,new LinearLayout.LayoutParams(-1,Math.max(ui.dp(240),(int)(activity.getResources().getDisplayMetrics().heightPixels*.65))));
+        row(box,"刷新概览",CameraUi.YELLOW,web::reload);
+        d.setOnDismissListener(ignored->{box.removeView(web);web.stopLoading();web.destroy();});
+        web.loadUrl(url);d.show();
     }
+    static boolean trusted(Uri uri){return uri!=null&&"https".equals(uri.getScheme())&&"lvshanyewu.site".equals(uri.getHost())&&(uri.getPort()==-1||uri.getPort()==443)&&uri.getUserInfo()==null&&uri.getPath()!=null&&uri.getPath().startsWith("/wandervision/");}
     void connection(){
         Dialog d=ui.sheet("监控中心连接","公开课程 Demo · 照片和位置可公开展示，网页可随时清库。\n"+MonitorApi.BASE+"/\n网页设置生成6位一次性配对码，5分钟有效。连接后仅前台约10秒上报位置/状态；照片需逐张点击上传。");LinearLayout box=ui.sheetBody(d);
         connectionStatus=ui.text(link.describe(),12,CameraUi.YELLOW);connectionStatus.setTextIsSelectable(true);box.addView(connectionStatus);
