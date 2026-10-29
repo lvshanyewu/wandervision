@@ -4,9 +4,10 @@ type: "continuation"
 id: "android-data-center-3.4.1"
 title: "3.4.1采集说明与数据汇集中心兼容"
 module_id: "android"
-status: "open"
-next_step: "源码56d5b10已推送、CI成功；模拟器UI填写采集点/备注→拍照→JSON/JPEG校验通过。v3.4.1 Release APK首传网络超时，正在重试（本地完整签名APK可用）。上传后回填发布结果并通知Web。"
-updated_at: "2026-10-29T15:30:52+08:00"
+status: "done"
+next_step: "用户覆盖安装3.4.1，设置采集点/备注后拍照并手动上传，在Web待复核台账核对完整条目和幂等；Web部署与台账联调由Web对话负责。"
+updated_at: "2026-10-29T15:33:53+08:00"
+external_checks: [{"service": "GitHub Release / CI", "checked_at": "2026-10-29T15:33:41+08:00", "status": "published", "evidence": "v3.4.1已发布 https://github.com/lvshanyewu/wandervision/releases/tag/v3.4.1；API确认APK160158481字节且digest与本地aac56f7873043369e077af6f8f085fd409d700e1b4e95b6fac9cd750b8707959一致。源码56d5b10，CI40835484912/40835460704成功；UI拍照说明、JSON/JPEG/EXIF哈希检查与23项quick契约通过。"}]
 ---
 
 # 实现
