@@ -7,5 +7,6 @@
 - tools/check_apk.py通过，十检测器/OCR/字典哈希完整，单ARM64 ELF。aapt确认versionName3.4.1/versionCode8。
 - apksigner verify v2通过，证书SHA256 fcd138196a9ef353dbe2e98a23ee22da0c6ed0a6cef442599d59d742c56dbbac，沿用既有测试签名；zipalign -c -P 16 4通过。
 - APK160158481字节，SHA256 aac56f7873043369e077af6f8f085fd409d700e1b4e95b6fac9cd750b8707959。
+- 模拟器原生界面检查：副标题与采集说明表单正常显示；填写Campus-Gate/Evening test后拍照，原JSON准确保留capture_context两字段，JPEG可见两行说明。check_report检查同帧来源、位置待定位、EXIF和JPEG哈希通过，未上传该照片。取景内容是模拟场景，不是实景检测验收。
 
 没有重复十模型矩阵或做性能长测。小米13相机、定位、实景精度及Web最新台账交互等待用户安装反馈；本次契约测试只证明客户端完整字段与图片传输结构保留，不宣称新Web已部署验收。

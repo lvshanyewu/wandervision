@@ -5,8 +5,8 @@ id: "android-data-center-3.4.1"
 title: "3.4.1采集说明与数据汇集中心兼容"
 module_id: "android"
 status: "open"
-next_step: "提交Android小改与自身文档，发布v3.4.1 APK，向Web回传下载地址。"
-updated_at: "2026-10-29T15:26:33+08:00"
+next_step: "源码56d5b10已推送、CI成功；模拟器UI填写采集点/备注→拍照→JSON/JPEG校验通过。v3.4.1 Release APK首传网络超时，正在重试（本地完整签名APK可用）。上传后回填发布结果并通知Web。"
+updated_at: "2026-10-29T15:30:52+08:00"
 ---
 
 # 实现
