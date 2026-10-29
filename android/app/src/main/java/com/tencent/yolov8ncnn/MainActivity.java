@@ -189,6 +189,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         Dialog d=ui.sheet("仪器设置","识别在本机完成；可连接公开课程监控中心，位置仅前台更新。照片由你逐张上传。");LinearLayout box=ui.sheetBody(d);
         sheetRow(box,(ui.overlay.grid?"●  ":"○  ")+"三分构图网格",CameraUi.WHITE,()->{ui.overlay.grid=!ui.overlay.grid;ui.overlay.invalidate();preferences.edit().putBoolean("grid",ui.overlay.grid).apply();d.dismiss();});
         sheetRow(box,"实验室 · 模型与固定机位规则",CameraUi.YELLOW,()->{d.dismiss();lab();});
+        sheetRow(box,"采集点与备注 · 用于后续新照片",CameraUi.YELLOW,()->{d.dismiss();collectionContext();});
         sheetRow(box,"实时检测仪表盘",CameraUi.WHITE,()->{d.dismiss();dashboard();});
         sheetRow(box,"定位与位置权限",CameraUi.WHITE,()->{d.dismiss();locationSettings();});
         sheetRow(box,"监控中心连接 · 配对与心跳",CameraUi.YELLOW,()->{d.dismiss();monitorUi.connection();});
@@ -196,7 +197,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         sheetRow(box,"相机权限与应用信息",CameraUi.WHITE,()->{d.dismiss();startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));});
         sheetRow(box,"开源来源与许可",CameraUi.MUTED,()->{d.dismiss();showLicenses();});d.show();
     }
-    private void showLicenses(){Dialog d=ui.sheet("开源许可","wandervision 3.4.0 · AGPL-3.0\nNCNN Android YOLOv8 / Tencent NCNN / OpenCV Mobile");
+    private void showLicenses(){Dialog d=ui.sheet("开源许可","wandervision 3.4.1 · AGPL-3.0\nNCNN Android YOLOv8 / Tencent NCNN / OpenCV Mobile");
         LinearLayout box=ui.sheetBody(d);String[] paths={"THIRD_PARTY_NOTICES.md","RDD2022-MODELS.md","EXPERIMENTS.md","HyperLPR-Apache-2.0.txt","LICENSE","ncnn-BSD-3-Clause.txt","opencv-LICENSE.txt","opencv-mobile-LICENSE.txt","Apache-2.0.txt"};
         for(String path:paths)sheetRow(box,path,CameraUi.WHITE,()->{d.dismiss();ENGINE.execute(()->{try(InputStream in=getAssets().open("licenses/"+path);ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] buffer=new byte[8192];int n;while((n=in.read(buffer))!=-1)out.write(buffer,0,n);String text=out.toString("UTF-8");main.post(()->{if(destroyed)return;Dialog license=ui.sheet(path,"随 APK 提供的原始许可文本");TextView t=ui.text(text,11,CameraUi.MUTED);t.setTextIsSelectable(true);ui.sheetBody(license).addView(t);license.show();});}catch(IOException e){main.post(()->toast("无法读取许可文本"));}});});d.show();
     }
@@ -207,23 +208,32 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
         sheetRow(box,"设备地图与监控概览",CameraUi.YELLOW,()->{d.dismiss();monitorUi.dashboard();});d.show();
     }
     private boolean captureBusy(){if(capturing){toast("取景照片正在生成，请稍候");return true;}return false;}
+    private void collectionContext(){
+        Dialog d=ui.sheet("采集说明","仅用于后续新照片；拍照时冻结保存。已有照片与JSON保持原样，上传时一并发送完整条目。可留空。");LinearLayout box=ui.sheetBody(d);
+        EditText site=new EditText(this);site.setTextColor(CameraUi.WHITE);site.setHintTextColor(CameraUi.MUTED);site.setHint("采集点名称（最多80字符）");site.setSingleLine(true);site.setText(preferences.getString("capture_site",""));site.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(160)});box.addView(site);
+        EditText note=new EditText(this);note.setTextColor(CameraUi.WHITE);note.setHintTextColor(CameraUi.MUTED);note.setHint("简短备注（最多240字符）");note.setMinLines(2);note.setMaxLines(4);note.setText(preferences.getString("capture_note",""));note.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(480)});box.addView(note);
+        sheetRow(box,"保存采集说明",CameraUi.YELLOW,()->{preferences.edit().putString("capture_site",CaptureContext.clean(site.getText().toString(),80)).putString("capture_note",CaptureContext.clean(note.getText().toString(),240)).apply();d.dismiss();toast("已保存 · 后续照片附带此说明");});
+        sheetRow(box,"清空说明",CameraUi.MUTED,()->{preferences.edit().remove("capture_site").remove("capture_note").apply();d.dismiss();});d.show();
+    }
     @Override public void shutter(){
         if(captureBusy())return;
         if(!cameraOpen||stats[4]<=frameAtOpen){toast("请等待相机首帧后取景");return;}
         if(Build.VERSION.SDK_INT<29){toast("巡检照片保存需要 Android 10 或更新版本");return;}
         capturing=true;final int c=capacity,r=resolution,m=mode,f=facing,b=backend;
         final LocationTracker.Fix fix=location.freeze();
+        final String site=preferences.getString("capture_site",""),note=preferences.getString("capture_note","");
         ENGINE.execute(()->{
             FrameCapture frame=detector.captureFrame();
             if(frame==null){main.post(()->{capturing=false;if(!destroyed)toast("取景超时，请等待画面稳定后重试");});return;}
             long capturedAt=System.currentTimeMillis()-(SystemClock.elapsedRealtimeNanos()-frame.elapsedNanos)/1_000_000L;
-            saveCapture(frame,c,r,m,f,b,fix,capturedAt);
+            saveCapture(frame,c,r,m,f,b,fix,capturedAt,site,note);
         });
     }
-    private void saveCapture(FrameCapture frame,int c,int r,int m,int facing,int backend,LocationTracker.Fix fix,long capturedAt){
+    private void saveCapture(FrameCapture frame,int c,int r,int m,int facing,int backend,LocationTracker.Fix fix,long capturedAt,String site,String note){
         Uri saved=null;Bitmap report=null;File jsonFile=null;
         try{
             JSONObject record=InspectionReport.create(frame,c,new int[]{320,480,640}[r],m,facing,backend,fix,capturedAt,installationId);
+            record.put("capture_context",CaptureContext.create(site,note));
             if(c==7&&m!=2)record.put("plate_recognition",PlateOcr.read(detector,getAssets(),frame));
             report=InspectionReport.render(frame,record,fix);
             String stamp=new SimpleDateFormat("yyyyMMdd_HHmmss_SSS",Locale.US).format(new Date(capturedAt));String name="WV_"+stamp+"_"+record.getString("event_id").substring(0,8)+".jpg";
@@ -272,6 +282,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback, Ca
             String plateSummary=PlateOcr.summary(record);if(!plateSummary.isEmpty()){TextView plateText=ui.text(plateSummary,14,CameraUi.YELLOW);plateText.setPadding(0,ui.dp(12),0,ui.dp(12));plateText.setTextIsSelectable(true);box.addView(plateText);}
             JSONObject analysis=record.optJSONObject("experimental_analysis");if(analysis!=null&&analysis.optBoolean("enabled")){TextView ruleText=ui.text("固定/手选区域实验 · 疑似标记 "+analysis.optInt("event_count")+"\n详见导出JSON；不代表违法或真实距离测量。",12,CameraUi.MUTED);box.addView(ruleText);}
             monitorUi.uploadControls(box,record,d);
+            String context=CaptureContext.summary(record);if(!context.isEmpty()){TextView contextText=ui.text(context,13,CameraUi.WHITE);contextText.setTextIsSelectable(true);box.addView(contextText);}
             sheetRow(box,"分享照片 + JSON 记录",CameraUi.YELLOW,()->shareReport(record,uri));
             sheetRow(box,"导出 JSON 文件",CameraUi.WHITE,()->{exportId=record.optString("event_id");Intent save=new Intent(Intent.ACTION_CREATE_DOCUMENT);save.setType("application/json");save.addCategory(Intent.CATEGORY_OPENABLE);save.putExtra(Intent.EXTRA_TITLE,exportId+".json");try{startActivityForResult(save,102);}catch(ActivityNotFoundException e){exportId=null;toast("没有可用的文件保存应用");}});
         }

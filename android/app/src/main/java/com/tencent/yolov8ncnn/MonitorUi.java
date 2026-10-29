@@ -71,7 +71,7 @@ final class MonitorUi {
     void uploadControls(LinearLayout box,JSONObject record,Dialog owner){
         String id=record.optString("event_id");
         TextView status=ui.text(link.receiptText(id),12,CameraUi.YELLOW);status.setTextIsSelectable(true);status.setPadding(0,ui.dp(12),0,ui.dp(6));box.addView(status);
-        TextView disclosure=ui.text("上传原始照片、识别结果与位置到公开课程 Demo，可公开展示并随时被网页清空。原图与原JSON不改写；旧照片“未上传”是生成时状态，以回执为准。",11,CameraUi.MUTED);box.addView(disclosure);
+        TextView disclosure=ui.text("上传照片 + 完整结构化条目：采集时间、设备、位置与精度/无定位、模型与逐目标结果，以及已有OCR、实验规则和采集说明。发送到公开课程数据汇集中心，可公开展示并由网页审核/清空。原图与原JSON不改写；上传状态以回执为准。",11,CameraUi.MUTED);box.addView(disclosure);
         final TextView[] button=new TextView[1];
         button[0]=row(box,"一键上传 / 重试确认",CameraUi.YELLOW,()->{
             if(link.store.credentials()==null||!link.store.enabled()){owner.dismiss();connection();return;}

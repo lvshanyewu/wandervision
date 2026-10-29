@@ -48,7 +48,7 @@ final class MonitorApi {
             connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(3000);connection.setReadTimeout(3000);
             connection.setRequestMethod("POST");connection.setDoOutput(true);connection.setFixedLengthStreamingMode(jpeg.length);
             connection.setRequestProperty("Content-Type","image/jpeg");connection.setRequestProperty("Authorization","Bearer "+c.token);
-            connection.setRequestProperty("User-Agent","wandervision/3.4.0 (Android)");connection.setRequestProperty("X-WV-Test-Data",test?"1":"0");
+            connection.setRequestProperty("User-Agent","wandervision/3.4.1 (Android)");connection.setRequestProperty("X-WV-Test-Data",test?"1":"0");
             try(OutputStream out=connection.getOutputStream()){out.write(jpeg);}
             int status=connection.getResponseCode();if(status!=200)throw new Failure(status,"实时画面暂未送达");
             try(InputStream in=connection.getInputStream()){
@@ -63,7 +63,7 @@ final class MonitorApi {
         HttpsURLConnection connection=(HttpsURLConnection)new URL(BASE+path(c,"live")).openConnection();
         try{
             connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(3000);connection.setReadTimeout(3000);
-            connection.setRequestProperty("User-Agent","wandervision/3.4.0 (Android)");
+            connection.setRequestProperty("User-Agent","wandervision/3.4.1 (Android)");
             if(connection.getResponseCode()!=200)throw new Failure(connection.getResponseCode(),"实时状态不可用");
             try(InputStream in=connection.getInputStream()){JSONObject result=new JSONObject(new String(read(in,8192),StandardCharsets.UTF_8));requireOk(result);return result;}
             catch(JSONException e){throw new Failure(0,"实时状态格式不正确");}
@@ -107,7 +107,7 @@ final class MonitorApi {
             HttpsURLConnection connection=(HttpsURLConnection)new URL(BASE+path).openConnection();
             try{
                 connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(path.endsWith("/live/stop")?2000:10_000);connection.setReadTimeout(path.endsWith("/live/stop")?2000:30_000);connection.setRequestMethod("POST");connection.setDoOutput(true);connection.setRequestProperty("Content-Type","application/json; charset=utf-8");connection.setRequestProperty("Accept","application/json");
-                connection.setRequestProperty("User-Agent","wandervision/3.4.0 (Android)");
+                connection.setRequestProperty("User-Agent","wandervision/3.4.1 (Android)");
                 if(token!=null)connection.setRequestProperty("Authorization","Bearer "+token);
                 byte[] payload=data.toString().getBytes(StandardCharsets.UTF_8);if(payload.length>MAX_REQUEST)throw new Failure(0,"请求超过大小限制");connection.setFixedLengthStreamingMode(payload.length);
                 try(OutputStream out=connection.getOutputStream()){out.write(payload);}
