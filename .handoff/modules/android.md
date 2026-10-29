@@ -3,7 +3,7 @@ schema_version: 1
 type: "module"
 id: "android"
 title: "Android 本地视觉与构建"
-summary: "3.4 Android实验模型：十检测器、同帧拍照车牌OCR、固定机位ROI规则、可选720p采集；保留定位照片/配对/LIVE/手机地图，真机效果待验收。"
+summary: "3.4.1 Android课设采集：完整schema1.0报告+原JPEG上传，采集点/备注在拍照时冻结；沿用十模型、OCR、固定机位规则与配对/LIVE。"
 aliases: []
 tags: ["Android", "NCNN"]
 sources: ["android/app/build.gradle", "android/app/src/main/java/", "android/app/src/main/jni/*.cpp", "android/app/src/main/jni/*.h", "android/app/src/main/jni/CMakeLists.txt", "android/app/src/main/assets/*.ncnn.*", "android/app/src/main/res/", "android/app/src/main/AndroidManifest.xml", "tools/prepare_native.py", "tools/check_apk.py", "tools/check_report.py", "docs/inspection-record.md", "android/app/src/androidTest/", "docs/android-monitor.md"]
@@ -12,12 +12,12 @@ related_modules: []
 business_rules: []
 invariants: []
 consumers: []
-updated_at: "2026-10-19T22:02:31+08:00"
+updated_at: "2026-10-29T15:26:02+08:00"
 ---
 
 # 当前实现
 
-Android 3.4.0/versionCode7，包名io.github.lvshanyewu.wandervision。NCNN本地链路保留COCO Nano/Small、RDD2022 Nano/Small；新增BDD100K Nano、交通标志36类/21类、车牌YOLOv8n、垃圾6类、TACO YOLO11s九类，合计十检测器，一次只加载所选模型。ModelCatalog使用稳定model_id与模型内class_id；COCO/BDD分别按自身类别过滤车辆。输入320/480/640，CPU/系统Vulkan，无Turnip。prepare_native调用prepare_models与prepare_experiments下载固定公开模型包，所有新增产物和字典校验SHA256；来源许可随APK。
+Android 3.4.1/versionCode8，包名io.github.lvshanyewu.wandervision。NCNN本地链路保留COCO Nano/Small、RDD2022 Nano/Small；新增BDD100K Nano、交通标志36类/21类、车牌YOLOv8n、垃圾6类、TACO YOLO11s九类，合计十检测器，一次只加载所选模型。ModelCatalog使用稳定model_id与模型内class_id；COCO/BDD分别按自身类别过滤车辆。输入320/480/640，CPU/系统Vulkan，无Turnip。prepare_native调用prepare_models与prepare_experiments下载固定公开模型包，所有新增产物和字典校验SHA256；来源许可随APK。
 
 车牌模式按快门从同一原生帧裁剪并用HyperLPR3识别器NCNN CPU推理，候选/置信度写照片与JSON plate_recognition。不含四角矫正/双层合并。官方77字典与78输出差异以拒绝未知索引处理。模型与边界详见docs/teacher-scope-feasibility.md、ocr-model-manifest.json。
 
@@ -26,6 +26,8 @@ Android 3.4.0/versionCode7，包名io.github.lvshanyewu.wandervision。NCNN本�
 原生黑黄巡检UI，底部弹窗由下上移。LIVE需配对启用、首开披露公开演示用途，后续单击开关；JNI单槽带框最新帧，HTTP1.1 chunked持续上传。离开前台、切换镜头/模型、暂停/解除连接停止；无录像/后台服务。真实小米13连续帧率不可由模拟器推断。
 
 App内同源/mobile只读WebView地图/设备概览，无token URL、JS桥、网页位置/相机权限或宽松TLS，关闭销毁。保留简化本地仪表盘。LocationTracker前台约10秒WGS84、30秒过期；同帧取景生成定位/检测JPEG、不可变schema1.0 JSON、EXIF/SHA；回执与手动幂等上传分离。新字段作为可选扩展，未修改Web/API。
+
+3.4.1副标题“道路巡检具身智能体”，设置中采集点与备注仅影响后续新照片，快门时冻结顶层capture_context.site_name/note（80/240 Unicode码点，空字符串可用），原JSON完整保存，照片两行缩略、详情完整显示。原schema1.0报告已含逐目标label/class_id/confidence/bbox、OCR候选和实验规则，仍整份report+原JPEG上传，保留event_id幂等与不可变原记录，无服务端协议变更。详见docs/android-data-center-3.4.1.md。
 
 # 构建与发布入口
 

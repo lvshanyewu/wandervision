@@ -54,7 +54,7 @@ final class CameraUi {
         android.text.SpannableString word=new android.text.SpannableString("wandervision");
         word.setSpan(new android.text.style.ForegroundColorSpan(YELLOW),6,12,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         TextView name=text("",22,WHITE);name.setText(word);name.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));brand.addView(name);
-        TextView sub=text("AI ROAD INSPECTION",8,MUTED);sub.setLetterSpacing(.22f);brand.addView(sub);
+        TextView sub=text("道路巡检具身智能体",9,MUTED);sub.setLetterSpacing(.06f);brand.addView(sub);
         header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
         TextView local=text("FIELD MODE  ●",9,YELLOW);local.setLetterSpacing(.06f);header.addView(local);
         root.addView(header,new LinearLayout.LayoutParams(-1,dp(62)));
