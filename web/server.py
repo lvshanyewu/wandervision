@@ -17,11 +17,14 @@ import random
 import re
 import secrets
 import sqlite3
+import sys
 import threading
 import time
-from urllib.parse import unquote, urlsplit
+from urllib.parse import unquote, urlsplit, parse_qs
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0,str(HERE))
+from data_center import DataCenter, ReviewConflict
 KINDS = {'pothole': ('道路坑槽', 'high'), 'crack': ('路面裂缝', 'medium'),
          'vehicle': ('车辆检测', 'low'), 'device': ('设备状态', 'info'), 'report': ('巡检照片', 'info')}
 CAMPUS = {'lat':29.4903657, 'lon':106.567229, 'name':'重庆交通大学 · 南岸校区', 'zoom':15}
@@ -145,6 +148,10 @@ class Engine:
         self.live_attempts = {key: deque(maxlen=15) for key in PHONE_IDS}
         self.live_sequence = 0
         self.live_epochs = {key:0 for key in PHONE_IDS}
+        self.ledger=DataCenter(self.db,self.clock,self.lock)
+        self.run_id=secrets.token_hex(5)
+        for rid,device,received,payload in self.db.execute('SELECT id,device_id,received,payload FROM reports').fetchall():
+            self.ledger.report(device,json.loads(payload),rid,received)
         self.pair_attempts = deque(maxlen=100)
         self.last_prune = self.clock()
         self.routes = json.loads((HERE / 'static/data/routes.json').read_text(encoding='utf-8'))
@@ -223,7 +230,7 @@ class Engine:
     def add_sim_event(self, d, kind, now, message=None):
         self.serial += 1
         title, severity = KINDS[kind]
-        event = {'id': f'sim-{self.round}-{self.serial}', 'device_id':d['id'], 'source':'sim',
+        event = {'id': f'sim-{self.run_id}-{self.round}-{self.serial}', 'device_id':d['id'], 'source':'sim',
                  'kind':kind, 'title':title, 'severity':severity, 'timestamp':now,
                  'lat':d['lat'], 'lon':d['lon'], 'location':d['location'],
                  'confidence':None if kind=='device' else round(self.random.uniform(.76,.97),2),
@@ -233,6 +240,7 @@ class Engine:
         self.sim_events.appendleft(event)
         self.sim_counts[kind] += 1
         self.cooldowns[(d['id'],kind)] = now
+        self.ledger.event(event,d)
 
     def tick(self):
         with self.lock:
@@ -320,7 +328,8 @@ class Engine:
             self.db.execute('INSERT INTO events(device_id,event_id,observed,payload) VALUES (?,?,?,?)',
                             (device_id,event_id,observed,json.dumps(event)))
             self.db.commit()
-            return {'ok':True,'duplicate':False,'event':event}
+            record_id=self.ledger.event(event,d)
+            return {'ok':True,'duplicate':False,'event':event,'record_id':record_id}
 
     def snapshot(self):
         with self.lock:
@@ -350,7 +359,7 @@ class Engine:
                     'sim_total':10,'real_connected':sum(d['last_seen'] is not None for d in real),
                     'anomalies':counts['pothole']+counts['crack'],'events':sum(counts.values()),
                     'distance_km':round(sum(d.get('distance_m',0) for d in self.devices)/1000,2)},
-                'campus':CAMPUS,
+                'campus':CAMPUS,'ledger':self.ledger.summary(),
                 'reports':self.report_list(),
                 'ingestion':{'configured':bool(os.environ.get('WV_DEVICE_TOKENS')) or bool(self.db.execute('SELECT 1 FROM credentials LIMIT 1').fetchone()),'heartbeat_ttl_seconds':30}}
 
@@ -500,10 +509,10 @@ class Engine:
         if not isinstance(report.get('inference',{}).get('detections',[]),list):raise ValueError('detections must be an array')
         if len(report.get('inference',{}).get('detections',[]))>500:raise ValueError('Too many detections')
         with self.lock:
-            row=self.db.execute('SELECT id,received,image_hash FROM reports WHERE device_id=? AND event_id=?',(device_id,event_id)).fetchone()
+            row=self.db.execute('SELECT id,received,image_hash,payload FROM reports WHERE device_id=? AND event_id=?',(device_id,event_id)).fetchone()
             if row:
                 if row[2]!=expected.lower():raise ValueError('event_id already used for a different image')
-                rid,received,_=row;duplicate=True
+                rid,received= row[0],row[1];report=json.loads(row[3]);duplicate=True
             else:
                 now=self.clock();rid='report-'+secrets.token_hex(12);received=now;duplicate=False
                 self.db.execute('INSERT INTO reports VALUES (?,?,?,?,?,?,?)',(rid,device_id,event_id,now,json.dumps(report,ensure_ascii=False),image,expected.lower()))
@@ -518,10 +527,12 @@ class Engine:
                        'report_id':rid}
                 self.db.execute('INSERT INTO events(device_id,event_id,observed,payload) VALUES (?,?,?,?)',(device_id,'photo-'+event_id,now,json.dumps(event,ensure_ascii=False)))
                 self.db.commit();self.prune()
-            return {'ok':True,'duplicate':duplicate,'server_event_id':rid,'received_at':iso(received),'image_url':PUBLIC_BASE+'/api/v1/reports/'+rid+'/image'}
+            record_id=self.ledger.report(device_id,report,rid,received)
+            return {'ok':True,'duplicate':duplicate,'server_event_id':rid,'received_at':iso(received),'image_url':PUBLIC_BASE+'/api/v1/reports/'+rid+'/image','record_id':record_id}
 
     def prune(self):
         with self.lock:
+            self.ledger.prune()
             cutoff=self.clock()-7*86400
             self.db.execute('DELETE FROM events WHERE observed<? OR id NOT IN (SELECT id FROM events ORDER BY observed DESC LIMIT 5000)',(cutoff,))
             rows=self.db.execute('SELECT id,device_id,event_id,LENGTH(image),received FROM reports ORDER BY received DESC').fetchall()
@@ -540,6 +551,7 @@ class Engine:
             return {'reports':reports,'image_bytes':images,'events':self.db.execute('SELECT COUNT(*) FROM events').fetchone()[0],
                     'database_bytes':sum(p.stat().st_size for p in [self.db_path,Path(str(self.db_path)+'-wal')] if p.exists()),
                     'max_reports':MAX_REPORTS,'max_image_bytes':MAX_REPORT_BYTES,'retention_days':7,
+                    'max_records':3000,'records':self.db.execute('SELECT COUNT(*) FROM records').fetchone()[0],
                     'paired_devices':[row[0] for row in self.db.execute('SELECT device_id FROM credentials')]}
 
     def maintenance(self, body):
@@ -547,7 +559,7 @@ class Engine:
         with self.lock:
             before=self.storage()['database_bytes']
             if body['action']=='clear':
-                self.db.executescript('DELETE FROM events; DELETE FROM reports; DELETE FROM devices;')
+                self.db.executescript('DELETE FROM events; DELETE FROM reports; DELETE FROM devices; DELETE FROM records; DELETE FROM review_log;')
                 if body.get('keep_pairing',True) is False:self.db.execute('DELETE FROM credentials')
                 self.pairings.clear()
                 self.live_frames.clear()
@@ -610,8 +622,35 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         path=urlsplit(self.path).path
+        filters={key:values[-1] for key,values in parse_qs(urlsplit(self.path).query).items()}
+        if path.startswith('/api/v1/records') or path in ['/report/','/report']:
+            try:
+                ledger=self.server.engine.ledger
+                if path=='/api/v1/records':return self.json_response(200,ledger.listing(filters))
+                if path=='/api/v1/records/summary':return self.json_response(200,ledger.summary(filters))
+                if path=='/api/v1/records/export':
+                    format=filters.get('format','csv');ledger.where(filters)
+                    if format not in ['csv','json']:raise ValueError('format must be csv or json')
+                    self.send_response(200);self.send_header('Content-Type','text/csv; charset=utf-8' if format=='csv' else 'application/json; charset=utf-8')
+                    self.send_header('Content-Disposition','attachment; filename="wandervision-records.'+format+'"')
+                    self.send_header('Cache-Control','no-store');self.end_headers()
+                    try:
+                        for chunk in ledger.export(filters,format):self.wfile.write(chunk)
+                    except (OSError,TimeoutError):pass
+                    self.close_connection=True;return
+                if path in ['/api/v1/records/report','/report/','/report']:
+                    body=ledger.report_html(filters).encode();self.send_response(200)
+                    self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(body)))
+                    self.send_header('Cache-Control','no-store')
+                    if path.startswith('/api/'):self.send_header('Content-Disposition','attachment; filename="wandervision-report.html"')
+                    self.end_headers();self.wfile.write(body);return
+                match=re.fullmatch('/api/v1/records/(rec-[a-f0-9]{20})',path)
+                if match:
+                    record=ledger.detail(match[1]);return self.json_response(200,record) if record else self.json_response(404,{'error':'Record not found'})
+                return self.json_response(404,{'error':'Unknown record endpoint'})
+            except ValueError as e:return self.json_response(400,{'error':str(e)[:180]})
         if path=='/api/v1/health':
-            return self.json_response(200,{'ok':True,'service':'wandervision','version':'3.0.1','live_transport':['jpeg','chunked-jpeg']})
+            return self.json_response(200,{'ok':True,'service':'wandervision','version':'4.0.0','live_transport':['jpeg','chunked-jpeg']})
         live_match=re.fullmatch(r'/api/v1/devices/(PHONE-0[1-3])/live(/frame.jpg|/mjpeg)?',path)
         if live_match:
             meta,data=self.server.engine.live_image(live_match[1])
@@ -701,7 +740,7 @@ class Handler(SimpleHTTPRequestHandler):
                 if not self.server.engine.authorize(match[1],self.headers.get('Authorization','')):
                     if raw_live and self.limited():raise LiveRateLimit('Too many unauthorized requests')
                     return self.json_response(401,{'error':'Valid per-device Bearer token required'})
-            elif path in ['/api/v1/simulation','/api/v1/pairing','/api/v1/maintenance']:
+            elif path in ['/api/v1/simulation','/api/v1/pairing','/api/v1/maintenance','/api/v1/records/review']:
                 origin=self.headers.get('Origin')
                 if origin and urlsplit(origin).netloc != self.headers.get('Host'):
                     return self.json_response(403,{'error':'Same-origin simulation control required'})
@@ -743,6 +782,7 @@ class Handler(SimpleHTTPRequestHandler):
             elif path=='/api/v1/pairing':result=engine.pairing_code(body)
             elif path=='/api/v1/pair':result=engine.pair(body)
             elif path=='/api/v1/maintenance':result=engine.maintenance(body)
+            elif path=='/api/v1/records/review':result=engine.ledger.review(body)
             elif match[2]=='heartbeat':
                 result=engine.heartbeat(match[1],body)
             elif match[2]=='reports':result=engine.receive_report(match[1],body)
@@ -750,6 +790,8 @@ class Handler(SimpleHTTPRequestHandler):
             else:
                 result=engine.ingest(match[1],body)
             self.json_response(200,result)
+        except ReviewConflict as exc:
+            self.json_response(409,{'error':str(exc)})
         except LiveRateLimit as exc:
             self.send_response(429);self.send_header('Retry-After','1');self.send_header('Content-Length','0');self.end_headers()
         except (ValueError,TypeError,UnicodeError) as exc:

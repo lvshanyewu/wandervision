@@ -115,5 +115,6 @@ window.WVUpgrade=(()=>{
   state.showEvents=window.WVPrefs.events;$('#show-events').checked=state.showEvents;
   if([1,2].includes(window.WVPrefs.map))setMapMode(window.WVPrefs.map);
   render();
+  if(new URLSearchParams(location.search).get('settings')==='connect')openSettings('connect');
   return {render,animate,openReport,time};
 })();

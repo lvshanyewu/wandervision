@@ -2,7 +2,7 @@
 
 轻量级道路智能巡检课程设计。Android 客户端采用黑灰黄原生巡检界面，完全本地运行的 YOLOv8 Nano / Small + NCNN 摄像头检测。
 
-新增 **Web 监控中心 v2 校园联动 Demo**：[在线测试](https://lvshanyewu.site/wandervision/)。以重庆交通大学南岸校区为中心，10台模拟设备、3个手机接入位、配对/照片上传档案、五种预设、循环透视采集场景及存储清理。运行 `python web/server.py` 后访问 <http://127.0.0.1:8090/>；无需 npm 或第三方 Python 运行依赖。[启动、接口与部署说明](docs/web-dashboard.md)。SIM合成场景与App上传/TEST数据明确区分，真实手机效果仍需用户验证。
+**道路巡检具身智能体 · Web 数据中心 v4**：[展示仪表盘](https://lvshanyewu.site/wandervision/) · [数据工作台](https://lvshanyewu.site/wandervision/admin/) · [可视化报告](https://lvshanyewu.site/wandervision/report/)。重庆交通大学南岸校区地图、10台模拟设备、3个手机接入位；统一台账、筛选/人工复核/标记、CSV/JSON导出、独立HTML报告及打印PDF。SIM/TEST/REAL明确区分。Android3.4.1可随照片上传YOLO目标、位置、模型、采集点及备注。运行 `python web/server.py` 后访问 <http://127.0.0.1:8090/>；无需npm或第三方Python运行依赖。[启动与部署](docs/web-dashboard.md) · [台账与上报接口](docs/data-center-contract.md)。
 
 - **通用物体**：COCO 80 类，可用杯子、瓶子、椅子、手机、键盘等室内物品验证。
 - **车辆**：同一 COCO 模型，仅显示 bicycle、car、motorcycle、bus、truck；不是另行训练的专用车辆模型。

@@ -183,10 +183,11 @@ function drawPreview(now){
 function render(){
   state.receivedAt=performance.now();
   const s=state.snapshot;
-  $('#stat-total').textContent=s.stats.total;
+  $('#stat-total').textContent=s.ledger?.total??0;
   $('#stat-online').innerHTML=`${s.stats.online}<em>/ 13</em>`;
-  $('#stat-alerts').textContent=s.stats.anomalies;
-  $('#stat-distance').innerHTML=`${s.stats.distance_km.toFixed(2)}<em>km</em>`;
+  $('#stat-alerts').textContent=s.ledger?.pending??0;
+  $('#stat-distance').innerHTML=`${s.ledger?.attention??0}<em>条</em>`;
+  if($('#business-list')){const ledger=s.ledger||{};$('#business-count').textContent=ledger.attention??0;$('#business-list').innerHTML=ledger.issues?.length?ledger.issues.slice(0,4).map(r=>`<a class="business-row" href="admin/?q=${encodeURIComponent(r.id)}"><span class="business-icon">◇</span><span><strong>${esc(r.title)}</strong><small>${esc(r.location)} · ${esc(r.device_id)}</small><em>${r.source==='sim'?'SIM 模拟':r.test_data?'TEST 联调':'REAL 上报'} · ${r.status==='confirmed'?'已确认':'待复核'}</em></span><b>↗</b></a>`).join(''):'<div class="business-empty">暂无待处理线索<br>可在后台补充模拟样本或连接手机上报。</div>';}
   $('#online-note').textContent=`${s.stats.real_connected} 台真实设备已接入`;
   const peak=Math.max(1,...s.trend.map(b=>b.sim+b.real));
   $('.mini-spark').textContent=s.trend.map(b=>'▁▂▃▄▅▆▇█'[Math.min(7,Math.floor((b.sim+b.real)/peak*7))]).join('');

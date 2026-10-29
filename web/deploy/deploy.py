@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import socket
 import time
 
 ROOT='/opt/wandervision'
@@ -118,10 +119,26 @@ WantedBy=multi-user.target
 
 def run(args):
     import paramiko
+    config_path=getattr(args,'config',None) or os.environ.get('WV_DEPLOY_CONFIG')
+    settings=json.loads(Path(config_path).read_text(encoding='utf-8-sig')) if config_path else {}
+    host=os.environ.get('DEPLOY_HOST') or settings.get('host')
+    if not host:raise ValueError('Set DEPLOY_HOST or --config / WV_DEPLOY_CONFIG; no built-in server IP')
+    port=int(os.environ.get('DEPLOY_PORT') or settings.get('port',22))
+    bind_address=os.environ.get('DEPLOY_BIND_ADDRESS') or settings.get('bind_address')
+    alias=os.environ.get('DEPLOY_HOST_KEY_ALIAS') or settings.get('host_key_alias')
     client=paramiko.SSHClient();client.load_system_host_keys()
     client.set_missing_host_key_policy(paramiko.RejectPolicy())
-    client.connect(os.environ['DEPLOY_HOST'],port=int(os.environ.get('DEPLOY_PORT','22')),
-                   username=os.environ.get('DEPLOY_USER','root'),password=os.environ.get('DEPLOY_PASSWORD'),
+    if alias:
+        trusted=client.get_host_keys().lookup(alias) or client._system_host_keys.lookup(alias)
+        if not trusted:raise ValueError('Trusted host-key alias not found in known_hosts')
+        target=host if port==22 else '['+host+']:'+str(port)
+        for name,key in trusted.items():client.get_host_keys().add(target,name,key)
+    connection=None
+    if bind_address:
+        connection=socket.socket(socket.AF_INET,socket.SOCK_STREAM);connection.settimeout(20)
+        connection.bind((bind_address,0));connection.connect((host,port))
+    client.connect(host,port=port,sock=connection,
+                   username=os.environ.get('DEPLOY_USER') or settings.get('user','root'),password=os.environ.get('DEPLOY_PASSWORD'),
                    timeout=20,banner_timeout=30)
     sftp=client.open_sftp()
     def command(cmd):
@@ -180,7 +197,9 @@ def run(args):
         stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
         release=ROOT+'/releases/'+stamp;folder=ROOT+'/backups/'+stamp
         command('mkdir -p '+release+'/static '+folder+' && chmod 700 '+folder)
-        payload={'server.py':(HERE/'server.py').read_bytes()}
+        backup_code="import pathlib,sqlite3,os; p=pathlib.Path('/var/lib/wandervision/wandervision.sqlite3'); b="+repr(folder+'/wandervision.sqlite3')+"; src=sqlite3.connect(p) if p.exists() else None; dst=sqlite3.connect(b) if src else None; src.backup(dst) if src else None; dst.close() if dst else None; src.close() if src else None; os.chmod(b,0o600) if p.exists() else None"
+        command('python3 -c '+shlex.quote(backup_code))
+        payload={name:(HERE/name).read_bytes() for name in ['server.py','data_center.py']}
         payload.update({'static/'+p.relative_to(HERE/'static').as_posix():p.read_bytes() for p in (HERE/'static').rglob('*') if p.is_file()})
         if any('qa-' in name for name in payload):raise RuntimeError('Temporary browser QA artifacts must not be deployed')
         manifest={'release':release,'old_release':old_release,'config_before':sha(config),'config_after':sha(revised),
@@ -193,7 +212,7 @@ def run(args):
         for name,data in payload.items():
             target=release+'/'+name
             write(target,data)
-        command('python3 -m py_compile '+release+'/server.py')
+        command('python3 -m py_compile '+release+'/server.py '+release+'/data_center.py')
         write(release+'/manifest.json',json.dumps(manifest['files']).encode())
         unit=service_unit(gateway).encode()
         if sha(read(CONFIG))!=manifest['config_before']:raise RuntimeError('Nginx changed during upload, stopping before activation')
@@ -235,4 +254,5 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check',action='store_true')
     parser.add_argument('--rollback')
+    parser.add_argument('--config',help='Private JSON connection profile; credentials remain in environment')
     run(parser.parse_args())
