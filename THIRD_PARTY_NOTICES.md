@@ -1,5 +1,15 @@
 # Third-party sources and notices
 
+## Web dashboard: Leaflet 1.9.4
+
+https://github.com/Leaflet/Leaflet/releases/tag/v1.9.4 — BSD-2-Clause. Self-hosted unmodified JS/CSS in `web/static/vendor/leaflet/`, with upstream `LICENSE`. Official runtime hashes are checked by `tools/prepare_web_maps.py`; bundled hashes recorded in `web/static/data/asset-checksums.json`. No React/Vue or remote runtime CDN is required. The dashboard uses custom SVG marker icons; the unused Leaflet default marker images are not referenced.
+
+## Chongqing OpenStreetMap data and OSRM route snapshots
+
+© OpenStreetMap contributors, https://www.openstreetmap.org/copyright . The derived map database and route geometry in `web/static/data/` retain ODbL 1.0, https://opendatacommons.org/licenses/odbl/1-0/ . Source, query, limitations and refresh instructions are provided in `web/static/data/SOURCES.md` and `tools/prepare_web_maps.py`. These data licenses are separate from the AGPL-3.0 code. Attribution is visible on the interactive map. Optional live OSM raster tiles are requested only for the current viewport and are not redistributed with this repository.
+
+OSRM route geometries were obtained once through the public demo service (non-commercial course project); no OSRM server or routing engine code is bundled. See https://project-osrm.org/docs/v5.24.0/api/ .
+
 ## ncnn-android-yolov8 demo source
 
 Source: https://github.com/nihui/ncnn-android-yolov8/tree/f1ac75ec54ccb3817a9eba620fe51da8bdcf87ca

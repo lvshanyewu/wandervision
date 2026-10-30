@@ -4,3 +4,7 @@ gradlew text eol=lf
 *.bat text eol=crlf
 *.bin binary
 *.jar binary
+# Preserve exact upstream bytes used by the map/vendor SHA-256 manifest.
+web/static/vendor/leaflet/* -text -whitespace
+web/static/data/chongqing.geojson -text
+web/static/data/routes.json -text

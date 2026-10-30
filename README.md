@@ -1,11 +1,13 @@
 # wandervision
 
-轻量级道路智能巡检课程设计。当前交付 **0.3.0 FIELD UI**：黑灰黄原生巡检界面，完全本地运行的 YOLOv8 Nano / Small + NCNN 摄像头检测。
+轻量级道路智能巡检课程设计。Android 客户端采用黑灰黄原生巡检界面，完全本地运行的 YOLOv8 Nano / Small + NCNN 摄像头检测。
+
+**道路巡检具身智能体 · Web 数据中心 v4**：[展示仪表盘](https://lvshanyewu.site/wandervision/) · [数据工作台](https://lvshanyewu.site/wandervision/admin/) · [可视化报告](https://lvshanyewu.site/wandervision/report/)。重庆交通大学南岸校区地图、10台模拟设备、3个手机接入位；统一台账、筛选/人工复核/标记、CSV/JSON导出、独立HTML报告及打印PDF。SIM/TEST/REAL明确区分。Android3.4.1可随照片上传YOLO目标、位置、模型、采集点及备注。运行 `python web/server.py` 后访问 <http://127.0.0.1:8090/>；无需npm或第三方Python运行依赖。[启动与部署](docs/web-dashboard.md) · [台账与上报接口](docs/data-center-contract.md)。
 
 - **通用物体**：COCO 80 类，可用杯子、瓶子、椅子、手机、键盘等室内物品验证。
 - **车辆**：同一 COCO 模型，仅显示 bicycle、car、motorcycle、bus、truck；不是另行训练的专用车辆模型。
 - 输入尺寸 320 / 480 / 640；CPU 默认，支持 Vulkan GPU；不含 Turnip 自定义驱动。
-- **纯取景**：不执行推理，便于检查相机、方向和界面；新增真实检测统计、构图网格、相册截图、最近记录与系统分享。
+- **纯取景**：不执行推理，便于检查相机、方向和界面；新增真实检测统计、构图网格、巡检照片、WGS84定位、结构化JSON、最近记录与系统分享。
 - Android 7.0+、ARM64、Camera2；截图保存需 Android10+。目标设备小米13，6.36英寸2400×1080/20:9；dp与系统安全区域适配，横屏控制区放在右侧。
 
 下载与反馈见 [GitHub Releases](https://github.com/lvshanyewu/wandervision/releases) 和 [0.3.0测试说明](docs/releases/0.3.0.md)。用户已确认0.2.0功能无问题；0.3.0仅重排和重绘界面，不新增模型或业务能力。
@@ -45,7 +47,7 @@ GitHub Actions 对 main 和 v* 标签执行构建、lint 和包内容/签名检�
 
 ## 后续路线
 
-当前已完成黑灰黄巡检UI、截图和本地统计，地图/轨迹仅为禁用占位。后续：真机反馈 → 道路病害模型 → GPS与本地事件库 → 轻量API/数据库/事件同步 → Web地图统计 → 课设材料。车牌和遗留物检测可选；GPS、云同步、后端和Web尚未接入，界面不显示虚构的位置或同步成功状态。
+当前已完成 Android 黑灰黄巡检UI、截图和本地统计；Android 地图/轨迹仍为禁用占位。独立 Web Demo 已新增地图、模拟和设备接收 API；下一步：Web 验收 → Android GPS与本地事件队列 → 对接心跳/检测 API → 道路病害模型实机验证 → 可选画面传输与课设材料。车牌和遗留物检测可选；Android GPS、云同步尚未接入，界面不显示虚构的位置或同步成功状态。
 
 ## 来源与许可
 
